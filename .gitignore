@@ -1,0 +1,13 @@
+# Geheimnisse: echte Werte nie committen ("Full Stack Handwerk", S. 29, 50)
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Editor und Betriebssystem
+.vscode/
+Thumbs.db
+desktop.ini
