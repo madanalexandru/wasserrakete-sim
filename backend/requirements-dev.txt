@@ -1,0 +1,2 @@
+# Nur für Tests, nicht im Produktiv-Image
+pytest==8.3.4
