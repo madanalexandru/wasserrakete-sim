@@ -10,6 +10,12 @@ Modell (1D, nach oben positiv), Zustand y = [h, v, V_w]:
 
 Vereinfachungen (Modellgrenzen): Strömung in der Flasche vernachlässigt,
 Ausflusskoeffizient = 1, Luftmasse vernachlässigt, kein Startrohr.
+
+Phasenende: Entweder ist das Wasser leer (V_w = 0) oder der Druck fällt vorher
+auf p_atm. Welches Ereignis eintritt, hängt nur von der Konfiguration ab:
+Herrscht bei leerer Flasche noch Überdruck, endet die Phase mit V_w = 0.
+Der Zeitpunkt wird zwischen zwei Zeitschritten mit einem austauschbaren
+Suchverfahren (Standard: binäre Suche) bestimmt.
 """
 
 import math
@@ -17,10 +23,13 @@ from dataclasses import dataclass
 
 from app.physics.freeflight import G
 from app.physics.integrator import rk4_step
+from app.search.binary_search import BinarySearch
+from app.search.searchable import Searchable
 
 RHO_WATER = 1000.0  # Dichte von Wasser in kg/m³ (Näherung)
 P_ATM = 101325.0  # Atmosphärendruck in Pa (Normatmosphäre)
 GAMMA = 1.4  # Isentropenexponent von Luft
+T_TOL = 1e-12  # Zeittoleranz der Suche nach dem Phasenende in s
 
 
 @dataclass
@@ -31,7 +40,8 @@ class WaterPhaseResult:
     water_rest: float  # verbliebenes Wasser in m³ (0 = leer)
     p_end: float  # absoluter Luftdruck am Ende in Pa
     water_empty: bool  # True: Wasser leer; False: Druck vorher verbraucht
-    trajectory: list[tuple[float, float, float, float]]  # (t, h, v, V_w)
+    trajectory: list[tuple[float, float, float, float]]  # (t, h, v, V_w), letzter Punkt = Phasenende
+    search_evaluations: int = 0  # Aufrufe der Zielfunktion bei der Suche (Vergleichsmetrik)
 
 
 def nozzle_area(d_nozzle: float) -> float:
@@ -62,6 +72,8 @@ def simulate_waterphase(
     k_drag: float,
     dt: float = 1e-5,
     max_steps: int = 10_000_000,
+    searcher: Searchable | None = None,
+    t_tol: float = T_TOL,
 ) -> WaterPhaseResult:
     """Integriert die Wasserphase vom Start (h = 0, v = 0) bis Wasser oder Druck leer ist."""
     if not 0 < v_water0 < v_bottle:
@@ -82,16 +94,43 @@ def simulate_waterphase(
             return [0.0, 0.0, -area * u]
         return [v, a, -area * u]
 
+    def pressure(v_water: float) -> float:
+        return air_pressure(v_water, v_bottle, v_water0, p0_abs)
+
+    # Endet die Phase mit leerer Flasche (True) oder mit p = p_atm (False)?
+    water_empties = pressure(0.0) > P_ATM
+    if water_empties:
+        def event_value(y: list[float]) -> float:
+            return y[2]  # Wasservolumen, Ziel 0
+        target = 0.0
+    else:
+        def event_value(y: list[float]) -> float:
+            return pressure(y[2])  # Luftdruck, Ziel p_atm
+        target = P_ATM
+
+    searcher = searcher or BinarySearch()
     t, y = 0.0, [0.0, 0.0, v_water0]
     trajectory = [(t, *y)]
     for _ in range(max_steps):
-        y = rk4_step(derivatives, t, y, dt)
+        y_new = rk4_step(derivatives, t, y, dt)
+        if event_value(y_new) <= target:
+            # Ende liegt in [t, t + dt]. Gesucht: Teilschritt s mit event_value = target.
+            # V_w und damit p fallen monoton in s.
+            def value_after(s: float, t=t, y=y) -> float:
+                return event_value(rk4_step(derivatives, t, y, s))
+
+            found = searcher.search(value_after, target, 0.0, dt, t_tol)
+            t_end = t + found.x
+            h_end, v_end, v_water_end = rk4_step(derivatives, t, y, found.x)
+            # Am Ereignis gilt per Definition V_w = 0 bzw. p = p_atm (Rest < Toleranz).
+            water_rest = 0.0 if water_empties else v_water_end
+            p_end = pressure(0.0) if water_empties else P_ATM
+            trajectory.append((t_end, h_end, v_end, water_rest))
+            return WaterPhaseResult(
+                t_end, h_end, v_end, water_rest, p_end, water_empties,
+                trajectory, found.evaluations,
+            )
         t += dt
+        y = y_new
         trajectory.append((t, *y))
-        p = air_pressure(y[2], v_bottle, v_water0, p0_abs)
-        if y[2] <= 0 or p <= P_ATM:
-            # Grobes Ende auf einen Zeitschritt genau.
-            # Präzisierung später mit binärer Suche (Checkliste Phase 2).
-            water_rest = max(y[2], 0.0)
-            return WaterPhaseResult(t, y[0], y[1], water_rest, p, water_rest == 0.0, trajectory)
     raise RuntimeError("Wasserphase nicht beendet: max_steps zu klein.")
