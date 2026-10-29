@@ -2,7 +2,7 @@
 
 Tabellen als Python-Klassen nach „Full Stack Handwerk“, S. 99–100.
 Jeder Flug speichert eine Kopie der Konfiguration, mit der er gerechnet
-wurde („Kassenbon“). So bleibt er reproduzierbar, und der CSV-Export
+wurde. So bleibt er reproduzierbar, und der CSV-Export
 braucht keinen Join. Die Konfig-Spalten heißen wie die Felder von
 RocketConfig; alle Werte in SI-Einheiten.
 
@@ -17,11 +17,21 @@ from app.physics.simulation import RocketConfig
 
 Base = declarative_base()
 
-# Muss genau den Feldern von RocketConfig entsprechen (prüft test_models.py).
-CONFIG_FIELDS = (
+# Pflichtfelder: nötig für die Flugsimulation (NOT NULL).
+REQUIRED_CONFIG_FIELDS = (
     "v_bottle", "v_water0", "p0_gauge", "d_nozzle",
     "m_empty", "c_w", "d_body", "temp0",
 )
+
+# Geometrie für die Barrowman-Prüfung: optional (NULL erlaubt).
+# Alte Zeilen aus der Zeit vor der 2. Migration haben hier NULL.
+GEOMETRY_FIELDS = (
+    "nose_shape", "l_nose", "n_fins", "fin_root_chord", "fin_tip_chord",
+    "fin_span", "fin_sweep", "x_fin", "x_cg_empty", "l_total",
+)
+
+# Muss genau den Feldern von RocketConfig entsprechen (prüft test_models.py).
+CONFIG_FIELDS = REQUIRED_CONFIG_FIELDS + GEOMETRY_FIELDS
 
 
 def config_values(cfg: RocketConfig) -> dict:
@@ -40,6 +50,18 @@ class ConfigColumns:
     c_w = Column(Float, nullable=False)  # Luftwiderstandsbeiwert
     d_body = Column(Float, nullable=False)  # Rumpfdurchmesser in m
     temp0 = Column(Float, nullable=False)  # Lufttemperatur beim Start in K
+
+    # Geometrie (Barrowman-Prüfung), Längen in m ab Nasenspitze
+    nose_shape = Column(String)  # "cone" oder "ogive"
+    l_nose = Column(Float)  # Länge des Nasenkegels
+    n_fins = Column(Integer)  # 3 oder 4
+    fin_root_chord = Column(Float)  # c_r
+    fin_tip_chord = Column(Float)  # c_t
+    fin_span = Column(Float)  # s
+    fin_sweep = Column(Float)  # x_t
+    x_fin = Column(Float)  # l_T
+    x_cg_empty = Column(Float)  # Schwerpunkt leer
+    l_total = Column(Float)  # Gesamtlänge
 
     def to_config(self) -> RocketConfig:
         """Zeile -> RocketConfig, damit der Flug neu gerechnet werden kann."""

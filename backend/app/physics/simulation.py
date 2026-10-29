@@ -22,6 +22,20 @@ class RocketConfig:
     d_body: float  # Rumpfdurchmesser in m (für die Stirnfläche)
     temp0: float = T_START  # Lufttemperatur beim Start in K
 
+    # Geometrie für die Stabilitätsprüfung nach Barrowman (1967).
+    # Optional: Die Flugphysik nutzt diese Felder nicht.
+    # Alle Längen in m, gemessen ab der Nasenspitze (Barrowman, S. ix).
+    nose_shape: str | None = None  # "cone" oder "ogive" (Abb. 3-7, S. 19)
+    l_nose: float | None = None  # Länge des Nasenkegels
+    n_fins: int | None = None  # Anzahl Finnen, 3 oder 4 (S. 1)
+    fin_root_chord: float | None = None  # c_r: Finnenlänge am Rumpf (Abb. 3-2, S. 7)
+    fin_tip_chord: float | None = None  # c_t: Finnenlänge außen (Abb. 3-2)
+    fin_span: float | None = None  # s: Spannweite ab Rumpf (Abb. 3-2)
+    fin_sweep: float | None = None  # x_t: Versatz der Vorderkante außen (Abb. 3-2)
+    x_fin: float | None = None  # l_T: Nasenspitze bis Vorderkante Finnenwurzel
+    x_cg_empty: float | None = None  # Schwerpunkt leer (gemessen, z. B. ausbalanciert)
+    l_total: float | None = None  # Gesamtlänge Nasenspitze bis Düse
+
 
 # Beispielrakete: plausible Werte für eine 1,5-l-Flasche, NICHT gemessen.
 # c_w = 0,5 ist ein Platzhalter bis zur Sensitivitätsanalyse (Phase 4).

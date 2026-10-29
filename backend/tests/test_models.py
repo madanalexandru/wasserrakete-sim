@@ -5,14 +5,17 @@ angelegt. Das prüft die Python-Seite des Modells ohne laufende
 PostgreSQL. Der Test gegen PostgreSQL folgt mit der Alembic-Migration.
 """
 
-from dataclasses import fields
+from dataclasses import fields, replace
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import CONFIG_FIELDS, Base, Flight, Rocket, Series, config_values
+from app.models import (
+    CONFIG_FIELDS, GEOMETRY_FIELDS, REQUIRED_CONFIG_FIELDS,
+    Base, Flight, Rocket, Series, config_values,
+)
 from app.physics.simulation import EXAMPLE_ROCKET, FlightResult, RocketConfig
 
 RESULT_FIELDS = [f.name for f in fields(FlightResult) if f.name != "trajectory"]
@@ -38,9 +41,17 @@ def test_exactly_three_tables():
 @pytest.mark.parametrize("table", ["rockets", "flights"])
 def test_config_columns_required(table):
     cols = Base.metadata.tables[table].columns
-    for name in CONFIG_FIELDS:
+    for name in REQUIRED_CONFIG_FIELDS:
         assert name in cols
         assert cols[name].nullable is False
+
+
+@pytest.mark.parametrize("table", ["rockets", "flights"])
+def test_geometry_columns_optional(table):
+    cols = Base.metadata.tables[table].columns
+    for name in GEOMETRY_FIELDS:
+        assert name in cols
+        assert cols[name].nullable is True
 
 
 def test_result_columns_match_flightresult():
@@ -77,6 +88,18 @@ def test_rocket_roundtrip(session):
     rocket = session.query(Rocket).one()
     assert rocket.to_config() == EXAMPLE_ROCKET
     assert rocket.created_at is not None
+
+
+def test_rocket_roundtrip_with_geometry(session):
+    # Werte frei gewählt, NICHT gemessen.
+    cfg = replace(
+        EXAMPLE_ROCKET, nose_shape="ogive", l_nose=0.12, n_fins=4,
+        fin_root_chord=0.10, fin_tip_chord=0.05, fin_span=0.08,
+        fin_sweep=0.05, x_fin=0.30, x_cg_empty=0.25, l_total=0.42,
+    )
+    session.add(Rocket(name="Mit Finnen", **config_values(cfg)))
+    session.commit()
+    assert session.query(Rocket).one().to_config() == cfg
 
 
 def test_flight_keeps_its_own_config(session):
