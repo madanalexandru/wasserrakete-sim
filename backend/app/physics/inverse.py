@@ -19,8 +19,9 @@ from app.search.searchable import Searchable
 
 P_TOL = 1.0  # Pa; Begründung siehe projektlog.txt (Toleranz inverser Modus)
 P_MIN = 1e3  # Pa; Suchuntergrenze (0 Pa ist in simulate_flight unzulässig)
-P_MAX = 1e6  # Pa; Suchobergrenze = obere Grenze des geprüften Monotoniebereichs (10 bar),
-#              KEINE Sicherheitsgrenze der Flasche [QUELLE PRÜFEN]
+P_MAX = 1e6  # Pa; Suchobergrenze = obere Grenze des geprüften Monotoniebereichs (10 bar).
+#              KEINE Sicherheitsgrenze: Ein zulässiger Flaschendruck ist nicht
+#              modelliert (keine belastbare Quelle gefunden, siehe Limitations).
 STEP0 = 5e4  # Pa; erste Schrittweite der Exponentialsuche (0,5 bar), Annahme
 
 
