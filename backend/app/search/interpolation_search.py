@@ -23,14 +23,18 @@ Anpassungen für kontinuierliche Intervalle (wie bei BinarySearch):
      ist auch das nicht möglich, ist die Maschinengenauigkeit erreicht.
   6. Steigende und fallende Funktionen; „return -1“ wird zu ValueError.
 
-Zusatzregel (Illinois-Variante):
-  7. Kontinuierlich entspricht die Interpolationssuche der Regula falsi. Bei
-     gekrümmten Funktionen rückt dann oft nur eine Grenze nach, die andere
-     bleibt stehen, und das Intervall wird nie <= tol. Darum: Rückt dieselbe
-     Grenze zweimal hintereinander, wird der gespeicherte Abstand der
-     stehenden Grenze zum Ziel halbiert. Die nächste Schätzung landet dann
-     auf der anderen Seite, und die stehende Grenze rückt nach.
-     Quelle: Dowell & Jarratt (1971) [QUELLE PRÜFEN].
+Zusatzregel (Illinois-Verfahren):
+  7. Kontinuierlich entspricht die Interpolationssuche der Regula falsi. Ist
+     die Funktion im Intervall konvex oder konkav, bleibt eine Grenze stehen
+     (Dowell & Jarratt 1971, S. 168), und das Intervall wird nie <= tol.
+     Darum: Rückt dieselbe Grenze zweimal hintereinander, wird der
+     gespeicherte Abstand der stehenden Grenze zum Ziel halbiert (Regel ii,
+     ebd., S. 169). Die nächste Schätzung landet dann meist auf der anderen
+     Seite, und die stehende Grenze rückt nach.
+     Quelle: M. Dowell, P. Jarratt: A modified regula falsi method for
+     computing the root of an equation. BIT 11 (1971), 168-174.
+     Das Verfahren selbst stammt laut ebd. (S. 169) vermutlich vom
+     Rechenzentrum der University of Illinois (frühe 1950er Jahre).
      Mit illinois=False wird das Stehenbleiben für den Vergleich sichtbar.
 """
 
