@@ -1,5 +1,30 @@
-fastapi==0.142.4
-uvicorn==0.54.0
-sqlalchemy==2.0.54
-psycopg2-binary==2.9.13
+# Laufzeit-Abhängigkeiten, vollständig fixiert (Sperrliste).
+# Direkt genutzt: fastapi, uvicorn, sqlalchemy, psycopg2-binary, alembic.
+# Alle übrigen Zeilen sind deren Abhängigkeiten.
+#
+# Erzeugt am 02.11.2026 in python:3.12-slim mit:
+#   pip install pip==26.2.1
+#   pip install --uploaded-prior-to 2026-10-19T00:00:00Z fastapi==0.142.4 uvicorn==0.54.0 sqlalchemy==2.0.54 psycopg2-binary==2.9.13 alembic==1.20.0
+#   pip freeze
+# Datumsgrenze = zwei Wochen vor der Erzeugung.
+# Vorbild: "Full Stack Handwerk", S. 82 (pip freeze > requirements.txt).
 alembic==1.20.0
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+fastapi==0.142.4
+greenlet==3.5.6
+h11==0.16.0
+idna==3.20
+Mako==1.4.3
+MarkupSafe==3.0.4
+opentelemetry-api==1.45.1
+psycopg2-binary==2.9.13
+pydantic==2.14.1
+pydantic_core==2.50.1
+SQLAlchemy==2.0.54
+starlette==1.9.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+uvicorn==0.54.0

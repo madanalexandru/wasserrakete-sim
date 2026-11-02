@@ -1,3 +1,12 @@
-# Nur für Tests, nicht im Produktiv-Image
+# Nur für Tests, nicht im Produktiv-Image.
+# Gleiche Datumsgrenze wie requirements.txt (2026-10-19T00:00:00Z).
+# Direkt genutzt: pytest, httpx2 (für FastAPIs TestClient,
+# Starlette 1.9 verlangt httpx2 statt httpx). Rest = Abhängigkeiten.
 -r requirements.txt
+httpcore2==2.14.0
+httpx2==2.14.0
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.7.0
 pytest==8.3.4
+truststore==0.10.5
