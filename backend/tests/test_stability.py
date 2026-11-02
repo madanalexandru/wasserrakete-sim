@@ -4,14 +4,16 @@ Geometrie- und Massewerte frei gewählt, NICHT gemessen. Die Schwellen in
 den Tests sind Testwerte, keine belegte Warnschwelle.
 """
 
-from dataclasses import replace
+from dataclasses import asdict, fields, replace
 from math import pi
 
 import pytest
 
 from app.physics.barrowman import center_of_pressure
 from app.physics.simulation import EXAMPLE_ROCKET
-from app.physics.stability import cg_with_water, check_stability
+from app.physics.stability import (
+    StabilityValues, cg_with_water, check_stability, stability_values,
+)
 from app.physics.waterphase import RHO_WATER
 
 D = 0.09  # Rumpfdurchmesser der Beispielrakete
@@ -87,3 +89,55 @@ def test_invalid_mass_geometry_rejected(change):
 def test_negative_water_rejected():
     with pytest.raises(ValueError):
         cg_with_water(ROCKET, -1e-4)
+
+
+# --- Werte ohne Urteil (stability_values, Entscheidung 6A) ----------------
+
+def test_values_match_check_stability():
+    values = asdict(stability_values(ROCKET))
+    result = asdict(check_stability(ROCKET, min_margin=0.0))
+    assert values == {k: result[k] for k in values}
+
+
+def test_values_carry_no_judgement():
+    # Kein Urteil: keine Schwelle, keine Warnungen, nur fünf Zahlen
+    assert [f.name for f in fields(StabilityValues)] == [
+        "x_cp", "x_cg_start", "x_cg_empty", "margin_start", "margin_empty",
+    ]
+
+
+def test_unstable_rocket_gives_values_without_error():
+    cfg = replace(ROCKET, x_cg_empty=0.40, v_water0=0.0)
+    assert stability_values(cfg).margin_empty < 0
+
+
+def test_values_missing_geometry_names_fields():
+    with pytest.raises(ValueError, match="x_cg_empty, l_total"):
+        stability_values(CP_ROCKET)
+
+
+# --- Garantie: endliche Zahlen oder ValueError (Entscheidung 9x) ----------
+# Absurde, aber laut Feldgrenzen gültige Werte. Ohne Umwandlung gäbe es
+# ZeroDivisionError, OverflowError oder NaN/unendlich (Sandbox, 02.11.).
+
+ABSURD = [
+    {"fin_sweep": 1e200},                          # Division durch null
+    {"fin_sweep": -1e200},                         # Division durch null
+    {"fin_span": 1e-300},                          # Division durch null
+    {"d_body": 1e-200},                            # Fläche wird 0
+    {"nose_shape": "ogive", "l_nose": 1e200},      # Überlauf
+    {"fin_span": 1e200},                           # NaN
+    {"fin_root_chord": 1e300, "fin_tip_chord": 1e300},  # unendlich
+    {"x_fin": 1.7e308},                            # unendlich
+]
+
+
+@pytest.mark.parametrize("change", ABSURD)
+def test_absurd_values_raise_value_error(change):
+    with pytest.raises(ValueError, match="nicht berechenbar"):
+        stability_values(replace(ROCKET, **change))
+
+
+def test_check_stability_also_raises_value_error():
+    with pytest.raises(ValueError, match="nicht berechenbar"):
+        check_stability(replace(ROCKET, fin_sweep=1e200), min_margin=0.0)
