@@ -15,6 +15,15 @@ Entscheidungen (Chat 02.11.2026):
   jede dieser Regeln nur einmal im Code.
 - Keine Obergrenzen: Für Grenzwerte gibt es (noch) keine Quelle.
 - d_nozzle < d_body ist eine reine Geometrie-Regel; die Physik prüft sie nicht.
+
+Ergänzt (Chat Teil 4, 02.11.2026):
+- Entscheidung 9x: Das Schema ruft stability_values auf. Diese Funktion
+  enthält check_geometry, check_mass_geometry und cg_with_water und
+  liefert außerdem nur endliche Werte oder einen ValueError. Extreme
+  Eingaben (z. B. d_body = 1e-200) ergeben so 422 statt 500.
+- Entscheidung 7a: RocketRead enthält das Feld stability (berechnet, nicht
+  gespeichert, ohne Urteil; Entscheidung 3B). Ohne Geometrie ist es null.
+  Gefüllt wird es im Endpunkt (app/main.py).
 """
 
 from datetime import datetime
@@ -24,9 +33,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models import GEOMETRY_FIELDS
 from app.physics.airphase import T_START
-from app.physics.barrowman import check_geometry
 from app.physics.simulation import RocketConfig
-from app.physics.stability import cg_with_water, check_mass_geometry
+from app.physics.stability import stability_values
 
 
 class RocketCreate(BaseModel):
@@ -80,15 +88,27 @@ class RocketCreate(BaseModel):
             raise ValueError(f"Geometrie unvollständig, es fehlen: {', '.join(missing)}")
 
         # Geometrie vollständig: Regeln der Physik direkt anwenden.
-        cfg = self.to_config()
-        check_geometry(cfg)
-        check_mass_geometry(cfg)
-        cg_with_water(cfg, cfg.v_water0)  # wirft, wenn die Wassersäule zu lang ist
+        # stability_values prüft Geometrie, Schwerpunkt und Wassersäule und
+        # wirft ValueError, wenn die Werte nicht endlich berechenbar sind.
+        stability_values(self.to_config())
         return self
 
 
+class StabilityRead(BaseModel):
+    """Stabilitätswerte nach Barrowman, berechnet, ohne Urteil (Entscheidung 3B)."""
+
+    # from_attributes=True: liest die Werte direkt aus StabilityValues.
+    model_config = ConfigDict(from_attributes=True)
+
+    x_cp: float = Field(description="Druckpunkt in m ab Nasenspitze")
+    x_cg_start: float = Field(description="Schwerpunkt mit Startwasser in m ab Nasenspitze")
+    x_cg_empty: float = Field(description="Schwerpunkt leer in m ab Nasenspitze")
+    margin_start: float = Field(description="Stabilitätsmaß beim Start in Kalibern")
+    margin_empty: float = Field(description="Stabilitätsmaß leer in Kalibern")
+
+
 class RocketRead(BaseModel):
-    """Antwort: gespeicherte Rakete mit ID und Zeitstempel."""
+    """Antwort: gespeicherte Rakete mit ID, Zeitstempel und Stabilitätswerten."""
 
     # from_attributes=True: liest die Werte direkt aus der SQLAlchemy-Zeile.
     model_config = ConfigDict(from_attributes=True)
@@ -114,3 +134,5 @@ class RocketRead(BaseModel):
     x_fin: float | None
     x_cg_empty: float | None
     l_total: float | None
+    # Berechnet, nicht gespeichert; null ohne Geometrie (Entscheidung 7a)
+    stability: StabilityRead | None = None

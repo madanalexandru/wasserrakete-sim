@@ -5,7 +5,8 @@ gemessen. Geprüft wird nur, ob gültige Eingaben durchkommen und ungültige
 mit einem ValidationError (in der API: 422) abgelehnt werden.
 """
 
-from dataclasses import asdict, replace
+from dataclasses import asdict, fields, replace
+from datetime import datetime, timezone
 from math import inf, nan, pi
 
 import pytest
@@ -15,9 +16,11 @@ from app.models import CONFIG_FIELDS, GEOMETRY_FIELDS
 from app.physics.airphase import T_START
 from app.physics.barrowman import check_geometry
 from app.physics.simulation import EXAMPLE_ROCKET, simulate_flight
-from app.physics.stability import cg_with_water, check_mass_geometry
+from app.physics.stability import (
+    StabilityValues, cg_with_water, check_mass_geometry, stability_values,
+)
 from app.physics.waterphase import simulate_waterphase
-from app.schemas import RocketCreate, RocketRead
+from app.schemas import RocketCreate, RocketRead, StabilityRead
 
 GEOMETRY = dict(
     nose_shape="cone", l_nose=0.12, n_fins=3, fin_root_chord=0.10,
@@ -43,7 +46,25 @@ def test_create_fields_match_model():
 
 
 def test_read_fields_match_model():
-    assert list(RocketRead.model_fields) == ["id", "name", "created_at", *CONFIG_FIELDS]
+    # stability ist berechnet, nicht gespeichert (Entscheidung 3B/7a)
+    assert list(RocketRead.model_fields) == [
+        "id", "name", "created_at", *CONFIG_FIELDS, "stability",
+    ]
+
+
+def test_stability_read_fields_match_physics():
+    assert list(StabilityRead.model_fields) == [f.name for f in fields(StabilityValues)]
+
+
+def test_stability_read_takes_values_from_physics():
+    values = stability_values(make().to_config())
+    assert StabilityRead.model_validate(values).model_dump() == asdict(values)
+
+
+def test_rocket_read_stability_defaults_to_none():
+    config = {k: v for k, v in FULL.items() if k != "name"}
+    read = RocketRead(id=1, name="x", created_at=datetime.now(timezone.utc), **config)
+    assert read.stability is None
 
 
 def test_to_config_roundtrip():
@@ -206,3 +227,29 @@ def test_valid_schema_runs_in_physics():
     check_geometry(cfg)
     check_mass_geometry(cfg)
     assert simulate_flight(cfg).apogee > 0
+
+
+# --- Extreme Werte: 422 statt 500 (Entscheidung 9x) -----------------------
+# Laut Feldgrenzen gültig, aber nicht endlich berechenbar. Vorher stürzte
+# das Schema bei d_body = 1e-200 mit ZeroDivisionError ab (API: 500,
+# Sandbox 02.11.). Werte wie in test_stability.py.
+
+ABSURD = [
+    {"fin_sweep": 1e200},
+    {"fin_sweep": -1e200},
+    {"fin_span": 1e-300},
+    {"d_body": 1e-200, "d_nozzle": 1e-201},
+    {"nose_shape": "ogive", "l_nose": 1e200},
+    {"fin_span": 1e200},
+    {"fin_root_chord": 1e300, "fin_tip_chord": 1e300},
+    {"x_fin": 1.7e308},
+]
+
+
+@pytest.mark.parametrize("change", ABSURD)
+def test_absurd_values_rejected_by_schema_and_physics(change):
+    with pytest.raises(ValueError, match="nicht berechenbar"):
+        stability_values(replace(EXAMPLE_ROCKET, **{**GEOMETRY, **change}))
+    with pytest.raises(ValidationError) as exc:
+        make(**change)
+    assert "nicht berechenbar" in error_text(exc)
