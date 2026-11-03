@@ -10,6 +10,11 @@ lebt nur in ihrer Verbindung. TestClient ruft die App aus einem anderen
 Thread auf; so sehen Test und App dieselbe Verbindung und dieselben Daten.
 
 Werte frei gewählt (wie test_stability.py), NICHT gemessen.
+
+Stabilitätswerte und Sicherheitsnetz (Chat Teil 4, 02.11.2026): Die Tests
+für das Netz ersetzen stability_values in app.main per monkeypatch, weil
+gültige Eingaben das Netz nach Entscheidung 9x nicht mehr erreichen. Das
+Schema benutzt seine eigene Referenz (app.schemas) und bleibt unberührt.
 """
 
 from dataclasses import asdict
@@ -25,6 +30,7 @@ from app.main import app
 from app.models import CONFIG_FIELDS, GEOMETRY_FIELDS, Base, Rocket
 from app.physics.airphase import T_START
 from app.physics.simulation import EXAMPLE_ROCKET
+from app.physics.stability import stability_values
 from app.schemas import RocketCreate
 
 GEOMETRY = dict(
@@ -153,3 +159,107 @@ def test_422_message_names_the_problem(client):
     message = response.json()["detail"][0]["msg"]
     assert "unvollständig" in message
     assert "l_total" in message
+
+
+# --- Stabilitätswerte (Entscheidungen 3B, 7a, 8i) -------------------------
+
+def test_create_returns_stability_values(client):
+    body = client.post("/api/rockets", json=FULL).json()
+    expected = asdict(stability_values(RocketCreate(**FULL).to_config()))
+    assert body["stability"] == expected
+
+
+def test_stability_has_no_judgement(client):
+    stability = client.post("/api/rockets", json=FULL).json()["stability"]
+    assert set(stability) == {"x_cp", "x_cg_start", "x_cg_empty", "margin_start", "margin_empty"}
+
+
+def test_create_without_geometry_has_no_stability(client):
+    assert client.post("/api/rockets", json=MINIMAL).json()["stability"] is None
+
+
+def test_get_returns_stability(client):
+    created = client.post("/api/rockets", json=FULL).json()
+    body = client.get(f"/api/rockets/{created['id']}").json()
+    assert body["stability"] == created["stability"]
+
+
+def test_get_without_geometry_has_no_stability(client):
+    created = client.post("/api/rockets", json=MINIMAL).json()
+    assert client.get(f"/api/rockets/{created['id']}").json()["stability"] is None
+
+
+def test_stability_is_not_stored():
+    assert "stability" not in Rocket.__table__.columns
+    assert not any(c.startswith(("x_cp", "margin")) for c in Rocket.__table__.columns.keys())
+
+
+# --- Extreme Werte: 422 schon bei der Eingabeprüfung (Entscheidung 9x) -----
+
+@pytest.mark.parametrize("changes", [
+    {"fin_sweep": 1e200},                       # vorher ZeroDivisionError
+    {"d_body": 1e-200, "d_nozzle": 1e-201},     # vorher 500 (Sandbox 02.11.)
+    {"fin_span": 1e200},                        # NaN
+])
+def test_absurd_values_return_422_and_store_nothing(client, engine, changes):
+    response = client.post("/api/rockets", json={**FULL, **changes})
+    assert response.status_code == 422
+    assert "nicht berechenbar" in response.json()["detail"][0]["msg"]
+    assert count_rockets(engine) == 0
+
+
+# --- Sicherheitsnetz im POST (Entscheidungen 9x, 10β) ---------------------
+
+def raise_value_error(cfg):
+    raise ValueError("Testfehler aus der Physik")
+
+
+def raise_runtime_error(cfg):
+    raise RuntimeError("simulierter Programmierfehler")
+
+
+def test_safety_net_turns_value_error_into_422(client, engine, monkeypatch):
+    monkeypatch.setattr("app.main.stability_values", raise_value_error)
+    response = client.post("/api/rockets", json=FULL)
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail[0]["msg"] == "Testfehler aus der Physik"
+    assert detail[0]["type"] == "value_error"
+    assert count_rockets(engine) == 0  # gerechnet wird vor dem Speichern
+
+
+def test_safety_net_does_not_hide_other_errors(client, engine, monkeypatch):
+    # Kein Netz für alles: ein Programmierfehler bleibt ein Fehler (500)
+    monkeypatch.setattr("app.main.stability_values", raise_runtime_error)
+    with pytest.raises(RuntimeError):
+        client.post("/api/rockets", json=FULL)
+    assert count_rockets(engine) == 0
+
+
+def test_without_geometry_physics_is_not_called(client, monkeypatch):
+    monkeypatch.setattr("app.main.stability_values", raise_value_error)
+    assert client.post("/api/rockets", json=MINIMAL).status_code == 201
+
+
+def test_get_has_no_safety_net(client, monkeypatch):
+    # Entscheidung 10β: Fehler in gespeicherten Daten -> 500, nicht 422
+    rocket_id = client.post("/api/rockets", json=FULL).json()["id"]
+    monkeypatch.setattr("app.main.stability_values", raise_value_error)
+    with pytest.raises(ValueError):
+        client.get(f"/api/rockets/{rocket_id}")
+
+
+def test_get_server_error_status_is_500(engine, monkeypatch):
+    # Wie der Client es sieht: Statuscode 500 statt Ausnahme im Test
+    def sqlite_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = sqlite_session
+    try:
+        with TestClient(app, raise_server_exceptions=False) as c:
+            rocket_id = c.post("/api/rockets", json=FULL).json()["id"]
+            monkeypatch.setattr("app.main.stability_values", raise_value_error)
+            assert c.get(f"/api/rockets/{rocket_id}").status_code == 500
+    finally:
+        app.dependency_overrides.clear()
