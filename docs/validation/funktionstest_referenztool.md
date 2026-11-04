@@ -23,7 +23,7 @@ Erwartungen für die Plausibilitätsprüfung (jeweils nur ein Wert geändert):
 ## Durchführung
 
 Datum/Uhrzeit: 03.11.2026 15:55
-Browser/Version:
+Browser/Version: Google Chrome 156.0.8078.48 (Offizieller Build, 64-Bit), JavaScript V8 15.6.75.19, Windows 11 25H2 (Build 26200.9711)
 Versionsangabe auf der Seite: Copyright © 2002-2016 Dean Wheeler - Ported to JavaScript by George Katz - V0.4 2017-2020
 Prüfsummen: sha256_2026-11-03.csv (lokal, nicht im Repo)
 
@@ -168,7 +168,7 @@ Geschwindigkeit, Verzögerung): Standard 25 C -> 1.1839 kg/m3, T3b 20 C ->
 Folgerung: Tool berechnet Luftdichte vermutlich aus Umgebungstemperatur
 und -druck. Dehnung: kein Feld; Standardvolumen 2.10 L deutet auf Eingabe
 des gedehnten Volumens hin (Indiz).
-d) Nozzle Adjuster Standard (A, B, C):
+d) Nozzle Adjuster Standard (A, B, C): 14, 16, 44
    erlaubte Werte: A 0 - 50; B 0 - 50; C 0 - 50.
    Beobachtung: A und B verändern Schulter und Halslänge, C rundet die
    Schulter. Exakte Bedeutung undokumentiert (von Wheeler definierte
