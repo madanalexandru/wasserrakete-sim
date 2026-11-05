@@ -30,18 +30,43 @@ Flug abrufen (GET /api/flights/{id}):
   Ein Fehler beim Lesen bleibt 500.
 - Unbekannte ID -> 404, wie beim Abruf einer Rakete. Eine Liste der Flüge
   gibt es nicht; große Mengen laufen über Serien und den CSV-Export.
+
+Serie starten (POST /api/rockets/{id}/series):
+- Variiert einen Parameter der gespeicherten Rakete (SeriesCreate) und
+  speichert jeden Flug als Kassenbon mit series_id. Vorerst nur der
+  Vorwärtsmodus.
+- Reihenfolge: erst alle Schritte vorab prüfen (wie beim Anlegen einer
+  Rakete), dann alle Flüge rechnen, dann alles in einer Transaktion
+  speichern. Scheitert ein Schritt, antwortet die API mit 422 und der
+  Schrittnummer, und es wird nichts gespeichert, auch nicht die Serie.
+- Ungültiger Schritt -> 422 mit type "value_error"; ValueError oder
+  RuntimeError der Simulation -> 422 mit type "simulation_error". Andere
+  Fehler bleiben 500.
+- duration_s = Rechnen aller Flüge + Schreiben in die Datenbank (bis nach
+  flush), gemessen mit perf_counter. Nicht enthalten: Vorabprüfung und
+  Commit.
+- Synchron: Die Antwort kommt erst, wenn alle Flüge gespeichert sind.
+  Die Höchstzahl der Schritte steht in SeriesCreate.
+
+Serie abrufen (GET /api/series/{id}):
+- Liefert die gespeicherte Serie ohne Flugliste; die Flüge kommen über den
+  CSV-Export. Unbekannte ID -> 404, kein Sicherheitsnetz.
 """
 
 import os
+from time import perf_counter
 
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import get_session
-from app.models import GEOMETRY_FIELDS, Flight, Rocket, config_values, result_values
+from app.models import GEOMETRY_FIELDS, Flight, Rocket, Series, config_values, result_values
 from app.physics.simulation import MODEL_VERSION, RocketConfig, simulate_flight
 from app.physics.stability import stability_values
-from app.schemas import FlightRead, RocketCreate, RocketRead, StabilityRead
+from app.schemas import (
+    FlightRead, RocketCreate, RocketRead, SeriesCreate, SeriesRead, SeriesStepError,
+    StabilityRead,
+)
 
 # DEBUG kommt aus der .env (über docker-compose.yml).
 # Nur bei DEBUG=true ist die API-Dokumentation unter /api/docs sichtbar.
@@ -139,3 +164,67 @@ def read_flight(flight_id: int, session: Session = Depends(get_session)):
     if flight is None:
         raise HTTPException(status_code=404, detail="Flug nicht gefunden")
     return flight  # gespeicherter Kassenbon, nichts neu gerechnet
+
+
+def step_error(step: int, msg: str, error_type: str) -> HTTPException:
+    """422 im Format von FastAPI, mit der Nummer des gescheiterten Schritts."""
+    return HTTPException(
+        status_code=422,
+        detail=[{"loc": ["body", "steps", step], "msg": msg, "type": error_type}],
+    )
+
+
+@app.post("/api/rockets/{rocket_id}/series", response_model=SeriesRead, status_code=201)
+def create_series(
+    rocket_id: int, series_in: SeriesCreate, session: Session = Depends(get_session)
+):
+    """Rechnet alle Flüge einer Serie und speichert sie, 404 bei unbekannter Rakete."""
+    rocket = session.get(Rocket, rocket_id)
+    if rocket is None:
+        raise HTTPException(status_code=404, detail="Rakete nicht gefunden")
+
+    # 1. Alle Schritte vorab prüfen, bevor irgendetwas gerechnet wird
+    try:
+        configs = series_in.step_configs(rocket.to_config())
+    except SeriesStepError as err:
+        raise step_error(err.step, str(err), "value_error") from err
+
+    # 2. Alle Flüge rechnen; noch nichts in der Session
+    start = perf_counter()
+    results = []
+    for step, cfg in enumerate(configs):
+        try:
+            results.append(simulate_flight(cfg))
+        except (ValueError, RuntimeError) as err:
+            value = getattr(cfg, series_in.param_name)
+            msg = f"Schritt {step} ({series_in.param_name} = {value!r}): {err}"
+            raise step_error(step, msg, "simulation_error") from err
+
+    # 3. Serie und Flüge schreiben; erst der Commit macht alles sichtbar
+    series = Series(rocket_id=rocket.id, **series_in.model_dump())
+    session.add(series)
+    session.flush()  # vergibt series.id für die Flüge
+    session.add_all(
+        Flight(
+            rocket_id=rocket.id,
+            series_id=series.id,
+            model_version=MODEL_VERSION,
+            **config_values(cfg),
+            **result_values(result),
+        )
+        for cfg, result in zip(configs, results)
+    )
+    session.flush()  # alle Flüge an die Datenbank gesendet
+    series.duration_s = perf_counter() - start
+    session.commit()
+    session.refresh(series)  # lädt created_at aus der Datenbank
+    return series
+
+
+@app.get("/api/series/{series_id}", response_model=SeriesRead)
+def read_series(series_id: int, session: Session = Depends(get_session)):
+    """Gibt eine gespeicherte Serie zurück (ohne Flüge), 404 bei unbekannter ID."""
+    series = session.get(Series, series_id)
+    if series is None:
+        raise HTTPException(status_code=404, detail="Serie nicht gefunden")
+    return series
