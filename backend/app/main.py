@@ -51,15 +51,28 @@ Serie starten (POST /api/rockets/{id}/series):
 Serie abrufen (GET /api/series/{id}):
 - Liefert die gespeicherte Serie ohne Flugliste; die Flüge kommen über den
   CSV-Export. Unbekannte ID -> 404, kein Sicherheitsnetz.
+
+CSV-Export (GET /api/series/{id}/flights.csv):
+- Alle Flüge der Serie als CSV, eine Zeile pro Flug, Spalten wie FlightRead
+  (Format siehe app/export.py). Sortiert nach dem variierten Parameter,
+  bei Gleichstand nach id; die Zeilen stehen damit in der Schrittfolge,
+  unabhängig davon, in welcher Reihenfolge die Datenbank die IDs vergibt.
+- Ganze Antwort statt Streaming: Die CSV wird vollständig erzeugt, bevor
+  etwas gesendet wird. Ein Fehler beim Lesen ergibt 500 statt einer
+  abgeschnittenen Datei mit Status 200.
+- Download als serie_<id>.csv. Unbekannte ID -> 404 wie beim Abruf der
+  Serie; kein Sicherheitsnetz, weil nichts gerechnet wird.
 """
 
 import os
 from time import perf_counter
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_session
+from app.export import flights_to_csv
 from app.models import GEOMETRY_FIELDS, Flight, Rocket, Series, config_values, result_values
 from app.physics.simulation import MODEL_VERSION, RocketConfig, simulate_flight
 from app.physics.stability import stability_values
@@ -228,3 +241,27 @@ def read_series(series_id: int, session: Session = Depends(get_session)):
     if series is None:
         raise HTTPException(status_code=404, detail="Serie nicht gefunden")
     return series
+
+
+@app.get(
+    "/api/series/{series_id}/flights.csv",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}, "description": "Flüge der Serie als CSV"}},
+)
+def export_series_csv(series_id: int, session: Session = Depends(get_session)):
+    """Alle Flüge einer Serie als CSV-Datei, 404 bei unbekannter ID."""
+    series = session.get(Series, series_id)
+    if series is None:
+        raise HTTPException(status_code=404, detail="Serie nicht gefunden")
+    varied = getattr(Flight, series.param_name)  # Spalte des variierten Parameters
+    query = (
+        select(Flight)
+        .where(Flight.series_id == series.id)
+        .order_by(varied, Flight.id)
+    )
+    text = flights_to_csv(session.scalars(query))  # vollständig, vor dem Senden
+    return Response(
+        content=text,
+        media_type="text/csv",  # Starlette ergänzt "; charset=utf-8"
+        headers={"Content-Disposition": f'attachment; filename="serie_{series.id}.csv"'},
+    )
