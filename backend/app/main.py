@@ -23,6 +23,13 @@ Flüge (POST /api/rockets/{id}/flights):
   nichts gespeichert. Die Rakete ist gültig, liegt aber außerhalb dessen,
   was das Modell rechnen kann (z. B. „max_steps zu klein“). Andere Fehler
   bleiben 500.
+
+Flug abrufen (GET /api/flights/{id}):
+- Liefert die gespeicherten Werte unverändert, auch bei einer älteren
+  model_version. Nichts wird neu gerechnet, daher kein Sicherheitsnetz:
+  Ein Fehler beim Lesen bleibt 500.
+- Unbekannte ID -> 404, wie beim Abruf einer Rakete. Eine Liste der Flüge
+  gibt es nicht; große Mengen laufen über Serien und den CSV-Export.
 """
 
 import os
@@ -123,3 +130,12 @@ def create_flight(rocket_id: int, session: Session = Depends(get_session)):
     session.commit()
     session.refresh(flight)  # lädt id und created_at aus der Datenbank
     return flight
+
+
+@app.get("/api/flights/{flight_id}", response_model=FlightRead)
+def read_flight(flight_id: int, session: Session = Depends(get_session)):
+    """Gibt einen gespeicherten Flug zurück, 404 bei unbekannter ID."""
+    flight = session.get(Flight, flight_id)
+    if flight is None:
+        raise HTTPException(status_code=404, detail="Flug nicht gefunden")
+    return flight  # gespeicherter Kassenbon, nichts neu gerechnet

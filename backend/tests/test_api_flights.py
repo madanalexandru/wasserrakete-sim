@@ -1,4 +1,5 @@
-"""API-Tests: Flug simulieren (POST /api/rockets/{id}/flights).
+"""API-Tests: Flug simulieren (POST /api/rockets/{id}/flights) und
+abrufen (GET /api/flights/{id}).
 
 Wie test_api.py gegen SQLite im Arbeitsspeicher. Die Fixtures sind bewusst
 aus test_api.py kopiert statt importiert, damit beide Dateien unabhängig
@@ -7,7 +8,10 @@ bleiben.
 Geprüft wird: URL unter der Rakete ohne Body; Flug = exakte Kopie der
 Rakete; model_version aus simulation.py; Antwort = vollständiger Kassenbon
 ohne Flugkurve; ValueError/RuntimeError der Simulation -> 422, nichts
-gespeichert; andere Fehler -> 500.
+gespeichert; andere Fehler -> 500. Abruf: liefert denselben Kassenbon wie
+der POST, rechnet nichts neu (auch bei geänderter MODEL_VERSION), ändert
+nichts in der Datenbank; unbekannte ID -> 404, keine Zahl -> 422; kein
+Sicherheitsnetz -> Fehler beim Lesen bleiben 500.
 
 Die Fehlerfälle ersetzen simulate_flight per monkeypatch: Ein echter
 RuntimeError (z. B. Düse 0,1 mm) braucht rund eine Minute, zu lang für
@@ -194,3 +198,82 @@ def test_other_errors_stay_500(engine, monkeypatch):
     finally:
         app.dependency_overrides.clear()
     assert count_flights(engine) == 0
+
+
+# --- Abruf (GET /api/flights/{id}) --------------------------------------------
+
+def new_flight(client, payload=FULL) -> dict:
+    response = client.post(f"/api/rockets/{new_rocket(client, payload)}/flights")
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest.mark.parametrize("payload", [FULL, MINIMAL])
+def test_get_returns_same_receipt_as_post(client, payload):
+    posted = new_flight(client, payload)
+    response = client.get(f"/api/flights/{posted['id']}")
+    assert response.status_code == 200
+    body = response.json()
+    assert list(body) == list(FlightRead.model_fields)  # feste Reihenfolge
+    assert body == posted
+
+
+def test_get_does_not_recompute(client, monkeypatch):
+    # Kassenbon: gespeicherte Werte gelten, auch nach einer Modelländerung
+    posted = new_flight(client)
+
+    def must_not_run(cfg):
+        raise AssertionError("GET darf nicht neu rechnen")
+
+    monkeypatch.setattr("app.main.simulate_flight", must_not_run)
+    monkeypatch.setattr("app.main.MODEL_VERSION", "neu")
+    body = client.get(f"/api/flights/{posted['id']}").json()
+    assert body == posted
+    assert body["model_version"] == MODEL_VERSION
+
+
+def test_get_changes_nothing(client, engine):
+    posted = new_flight(client)
+    client.get(f"/api/flights/{posted['id']}")
+    client.get(f"/api/flights/{posted['id']}")
+    assert count_flights(engine) == 1
+    with Session(engine) as session:  # frische Session: nicht der Antwort glauben
+        stored = FlightRead.model_validate(session.get(Flight, posted["id"]))
+    posted.pop("created_at")
+    stored = stored.model_dump(mode="json")
+    stored.pop("created_at")  # SQLite speichert ohne Zeitzone (Dialektunterschied)
+    assert stored == posted
+
+
+def test_get_finds_the_right_flight(client):
+    first = new_flight(client, FULL)
+    second = new_flight(client, MINIMAL)
+    assert client.get(f"/api/flights/{first['id']}").json() == first
+    assert client.get(f"/api/flights/{second['id']}").json() == second
+
+
+@pytest.mark.parametrize("flight_id", [999, 0, -1])
+def test_unknown_flight_404(client, flight_id):
+    new_flight(client)
+    response = client.get(f"/api/flights/{flight_id}")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Flug nicht gefunden"}
+
+
+@pytest.mark.parametrize("flight_id", ["abc", "1.5"])
+def test_flight_id_must_be_integer(client, flight_id):
+    assert client.get(f"/api/flights/{flight_id}").status_code == 422
+
+
+def test_get_errors_stay_500(engine, monkeypatch):
+    # Kein Sicherheitsnetz: Ein Fehler beim Lesen liegt nicht an der Anfrage
+    def broken_get(self, *args, **kwargs):
+        raise RuntimeError("Lesefehler")
+
+    try:
+        with make_client(engine, raise_server_exceptions=False) as c:
+            flight_id = new_flight(c)["id"]
+            monkeypatch.setattr(Session, "get", broken_get)
+            assert c.get(f"/api/flights/{flight_id}").status_code == 500
+    finally:
+        app.dependency_overrides.clear()
