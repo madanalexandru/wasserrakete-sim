@@ -29,30 +29,39 @@ Antworten:
   tests/test_flight_read.py).
 
 Experimentserien:
-- SeriesCreate beschreibt eine Serie: Ein Pflichtfeld der Konfiguration wird
-  linear von param_start bis param_stop (beide inklusive) in n_steps Werten
-  variiert; alle übrigen Werte stammen aus der gespeicherten Rakete.
-- Variierbar sind nur die Pflichtfelder der Flugphysik. Die Geometrie
-  ändert das Apogäum nicht und wäre als Parameter einer Serie wirkungslos.
-- Vorerst nur der Vorwärtsmodus (mode = "forward").
-- step_configs prüft jeden Schritt vorab mit RocketCreate, bevor gerechnet
-  wird. Damit gelten für jeden Schritt dieselben Regeln wie beim Anlegen
-  einer Rakete, und jede Regel steht weiter nur einmal im Code. Der erste
-  ungültige Schritt ergibt einen SeriesStepError (ein ValueError) mit
-  Schrittnummer und Wert.
+- SeriesCreate beschreibt eine Serie: Ein Parameter wird linear von
+  param_start bis param_stop (beide inklusive) in n_steps Werten variiert;
+  alle übrigen Werte stammen aus der gespeicherten Rakete.
+- Im Vorwärtsmodus variierbar sind nur die Pflichtfelder der Flugphysik.
+  Die Geometrie ändert das Apogäum nicht und wäre als Parameter einer Serie
+  wirkungslos.
+- Zwei Modi: Im Vorwärtsmodus wird ein Pflichtfeld variiert. Im inversen
+  Modus wird die Zielhöhe target_apogee variiert; zu jeder Zielhöhe sucht
+  der Endpunkt den Startdruck. Erlaubt ist das, weil das Apogäum monoton
+  mit dem Startdruck steigt. searcher wählt das Suchverfahren und ist nur
+  im inversen Modus erlaubt; ohne Angabe gilt DEFAULT_SEARCHER, der Name
+  wird immer ausdrücklich gespeichert.
+- Der inverse Modus hat eine eigene Obergrenze für n_steps, weil jeder
+  Schritt eine ganze Suche (viele Flüge) ist.
+- step_configs (nur Vorwärtsmodus) prüft jeden Schritt vorab mit
+  RocketCreate, bevor gerechnet wird. Damit gelten für jeden Schritt
+  dieselben Regeln wie beim Anlegen einer Rakete, und jede Regel steht
+  weiter nur einmal im Code. Der erste ungültige Schritt ergibt einen
+  SeriesStepError (ein ValueError) mit Schrittnummer und Wert.
 - SeriesRead enthält die Spalten der Tabelle series in ihrer Reihenfolge,
   ohne Flugliste. Die Flüge einer Serie kommen über den CSV-Export.
 """
 
 from dataclasses import asdict
 from datetime import datetime
-from math import isfinite
+from math import ceil, isfinite, log2
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from app.models import GEOMETRY_FIELDS, REQUIRED_CONFIG_FIELDS
 from app.physics.airphase import T_START
+from app.physics.inverse import P_MAX, P_MIN, P_TOL
 from app.physics.simulation import RocketConfig
 from app.physics.stability import stability_values
 
@@ -208,6 +217,23 @@ class FlightRead(BaseModel):
 # Durchsatzmessung überprüfen.
 SERIES_MAX_STEPS = 1000
 
+# Inverser Modus: variiert wird die Zielhöhe, nicht ein Feld der Konfiguration.
+INVERSE_PARAM = "target_apogee"
+# Erlaubte Suchverfahren für den inversen Modus. Die Interpolationssuche
+# arbeitet immer mit Illinois-Regel; ohne sie bleibt eine Grenze bei
+# gekrümmten Kurven stehen und die Suche endet erst bei max_iter.
+SEARCHERS = ("binary", "exponential", "interpolation")
+DEFAULT_SEARCHER = "exponential"
+
+# Flüge pro inversem Schritt bei binärer Suche: 2 Randwerte, dazu die
+# Halbierungen von [P_MIN, P_MAX] bis auf P_TOL, dazu Kontroll- und
+# Ergebnisflug. Rechnung, keine Messung; andere Verfahren brauchen
+# andere Anzahlen.
+FLIGHTS_PER_INVERSE_STEP = 2 + ceil(log2((P_MAX - P_MIN) / P_TOL)) + 2
+# Gleiches Flugbudget wie SERIES_MAX_STEPS, abgerundet. Ebenfalls Annahme
+# ohne Messung; nach der Durchsatzmessung überprüfen.
+SERIES_MAX_STEPS_INVERSE = 40
+
 
 class SeriesStepError(ValueError):
     """Ein Schritt der Serie verletzt eine Regel von RocketCreate."""
@@ -228,15 +254,19 @@ class SeriesCreate(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     name: str = Field(min_length=1, description="Frei wählbarer Name der Serie")
-    mode: Literal["forward"] = Field(description="Modus der Serie, vorerst nur forward")
-    # Literal mit Tupel: erlaubt genau die Pflichtfelder der Konfiguration
-    param_name: Literal[REQUIRED_CONFIG_FIELDS] = Field(
-        description="Variierter Parameter (Pflichtfeld der Konfiguration, SI)"
+    mode: Literal["forward", "inverse"] = Field(description="forward oder inverse")
+    # Literal mit Tupel: die Pflichtfelder der Konfiguration (forward)
+    # und die Zielhöhe (inverse)
+    param_name: Literal[(*REQUIRED_CONFIG_FIELDS, INVERSE_PARAM)] = Field(
+        description="Variierter Parameter (forward: Pflichtfeld, inverse: target_apogee; SI)"
     )
     param_start: float = Field(description="Erster Wert, SI-Einheit des Parameters")
     param_stop: float = Field(description="Letzter Wert, SI-Einheit des Parameters")
     n_steps: int = Field(
         ge=2, le=SERIES_MAX_STEPS, description="Anzahl der Werte einschließlich Start und Stopp"
+    )
+    searcher: Literal[SEARCHERS] | None = Field(
+        default=None, description="Suchverfahren, nur im inversen Modus"
     )
 
     def param_values(self) -> list[float]:
@@ -264,12 +294,37 @@ class SeriesCreate(BaseModel):
             raise ValueError("Die Werte der Serie sind nicht streng steigend (Abstand zu klein)")
         return self
 
+    @model_validator(mode="after")
+    def check_mode(self):
+        if self.mode == "forward":
+            if self.param_name == INVERSE_PARAM:
+                raise ValueError(f"{INVERSE_PARAM} ist nur im inversen Modus erlaubt")
+            if self.searcher is not None:
+                raise ValueError("searcher ist nur im inversen Modus erlaubt")
+            return self
+        if self.param_name != INVERSE_PARAM:
+            raise ValueError(f"Im inversen Modus muss param_name {INVERSE_PARAM} sein")
+        # Werte streng steigend: param_start > 0 genügt für alle Zielhöhen
+        if not self.param_start > 0:
+            raise ValueError("Zielhöhen müssen > 0 m sein")
+        if self.n_steps > SERIES_MAX_STEPS_INVERSE:
+            raise ValueError(
+                f"Im inversen Modus sind höchstens {SERIES_MAX_STEPS_INVERSE} Schritte erlaubt"
+            )
+        if self.searcher is None:
+            self.searcher = DEFAULT_SEARCHER  # ausdrücklich speichern
+        return self
+
     def step_configs(self, rocket: RocketConfig) -> list[RocketConfig]:
         """Eine RocketConfig pro Schritt, jeder Schritt vorab mit RocketCreate geprüft.
 
         Alle Werte außer param_name stammen aus rocket. Der erste ungültige
         Schritt bricht mit SeriesStepError ab; es wird nichts gerechnet.
+        Nur im Vorwärtsmodus: Im inversen Modus ist der variierte Wert kein
+        Feld der Konfiguration.
         """
+        if self.mode != "forward":
+            raise RuntimeError("step_configs gilt nur für den Vorwärtsmodus")
         base = {"name": self.name, **asdict(rocket)}
         configs = []
         for step, value in enumerate(self.param_values()):

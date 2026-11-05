@@ -1,8 +1,9 @@
 """Tests für die Schemas der Experimentserie (app/schemas.py).
 
 Geprüft wird: welche Eingaben eine Serie beschreiben dürfen, welche Werte
-daraus entstehen und dass jeder Schritt vorab dieselben Regeln wie
-RocketCreate erfüllen muss. Werte frei gewählt, NICHT gemessen.
+daraus entstehen, dass jeder Schritt vorab dieselben Regeln wie
+RocketCreate erfüllen muss und welche Regeln im inversen Modus gelten.
+Werte frei gewählt, NICHT gemessen.
 """
 
 from dataclasses import replace
@@ -14,10 +15,14 @@ import pytest
 from pydantic import ValidationError
 
 from app.models import CONFIG_FIELDS, GEOMETRY_FIELDS, REQUIRED_CONFIG_FIELDS, Series
+from app.physics.inverse import P_MAX, P_MIN, P_TOL
 from app.physics.simulation import EXAMPLE_ROCKET
 from app.schemas import (
-    SERIES_MAX_STEPS, RocketCreate, SeriesCreate, SeriesRead, SeriesStepError,
+    DEFAULT_SEARCHER, FLIGHTS_PER_INVERSE_STEP, INVERSE_PARAM, SEARCHERS,
+    SERIES_MAX_STEPS, SERIES_MAX_STEPS_INVERSE, RocketCreate, SeriesCreate,
+    SeriesRead, SeriesStepError,
 )
+from app.search.binary_search import BinarySearch
 
 GEOMETRY = dict(
     nose_shape="cone", l_nose=0.12, n_fins=3, fin_root_chord=0.10,
@@ -28,17 +33,36 @@ VALID = dict(
     name="Druckserie", mode="forward", param_name="p0_gauge",
     param_start=2e5, param_stop=6e5, n_steps=5,
 )
+INVERSE = dict(
+    name="Zielhoehen", mode="inverse", param_name="target_apogee",
+    param_start=10.0, param_stop=40.0, n_steps=4,
+)
 
 
 def make(**changes) -> SeriesCreate:
     return SeriesCreate(**{**VALID, **changes})
 
 
+def make_inverse(**changes) -> SeriesCreate:
+    return SeriesCreate(**{**INVERSE, **changes})
+
+
 # --- Übereinstimmung mit Datenmodell und RocketCreate ----------------------
 
-def test_variable_params_are_the_required_config_fields():
+def test_variable_params_are_the_required_config_fields_and_the_target():
     allowed = get_args(SeriesCreate.model_fields["param_name"].annotation)
-    assert allowed == REQUIRED_CONFIG_FIELDS
+    assert allowed == (*REQUIRED_CONFIG_FIELDS, INVERSE_PARAM)
+
+
+def test_inverse_param_is_a_flight_column():
+    # Die CSV sortiert nach der Spalte mit dem Namen param_name
+    assert INVERSE_PARAM in Series.metadata.tables["flights"].columns.keys()
+
+
+def test_searchers_match_the_schema():
+    literal = get_args(SeriesCreate.model_fields["searcher"].annotation)[0]
+    assert get_args(literal) == SEARCHERS
+    assert DEFAULT_SEARCHER in SEARCHERS
 
 
 def test_variable_params_exist_in_rocketcreate():
@@ -93,12 +117,7 @@ def test_n_steps_outside_limits_is_rejected(n):
         make(n_steps=n)
 
 
-def test_inverse_mode_is_not_yet_accepted():
-    with pytest.raises(ValidationError):
-        make(mode="inverse", param_name="p0_gauge")
-
-
-@pytest.mark.parametrize("param", [*GEOMETRY_FIELDS, "target_apogee", "name", "p0"])
+@pytest.mark.parametrize("param", [*GEOMETRY_FIELDS, "name", "p0"])
 def test_other_params_are_rejected(param):
     with pytest.raises(ValidationError):
         make(param_name=param)
@@ -130,9 +149,27 @@ def test_indistinguishable_steps_are_rejected():
 
 
 def test_unknown_field_is_rejected():
-    # searcher gibt es erst mit dem inversen Modus
     with pytest.raises(ValidationError):
+        make(searchr="binary")
+
+
+def test_target_is_not_allowed_in_forward_mode():
+    with pytest.raises(ValidationError, match="nur im inversen Modus erlaubt"):
+        make(param_name="target_apogee", param_start=10.0, param_stop=40.0)
+
+
+def test_searcher_is_not_allowed_in_forward_mode():
+    with pytest.raises(ValidationError, match="searcher ist nur im inversen Modus"):
         make(searcher="binary")
+
+
+def test_forward_mode_accepts_explicit_null_searcher():
+    # null entspricht der Antwort SeriesRead im Vorwärtsmodus
+    assert make(searcher=None).searcher is None
+
+
+def test_inverse_step_limit_does_not_apply_to_forward_mode():
+    assert make(n_steps=SERIES_MAX_STEPS_INVERSE + 1).n_steps == SERIES_MAX_STEPS_INVERSE + 1
 
 
 def test_empty_name_is_rejected():
@@ -145,6 +182,74 @@ def test_every_input_field_is_required(field):
     data = {k: v for k, v in VALID.items() if k != field}
     with pytest.raises(ValidationError):
         SeriesCreate(**data)
+
+
+# --- Inverser Modus ------------------------------------------------------------
+
+def test_inverse_series_gets_the_default_searcher():
+    s = make_inverse()
+    assert s.searcher == DEFAULT_SEARCHER == "exponential"
+    # wird mitgespeichert, weil main.py die Serie aus model_dump() anlegt
+    assert s.model_dump()["searcher"] == DEFAULT_SEARCHER
+
+
+@pytest.mark.parametrize("searcher", SEARCHERS)
+def test_every_searcher_is_accepted(searcher):
+    assert make_inverse(searcher=searcher).searcher == searcher
+
+
+@pytest.mark.parametrize("searcher", ["interpolation_no_illinois", "Binary", "", "bisection"])
+def test_unknown_searcher_is_rejected(searcher):
+    with pytest.raises(ValidationError):
+        make_inverse(searcher=searcher)
+
+
+@pytest.mark.parametrize("param", REQUIRED_CONFIG_FIELDS)
+def test_inverse_mode_needs_the_target(param):
+    with pytest.raises(ValidationError, match="muss param_name target_apogee sein"):
+        make_inverse(param_name=param)
+
+
+@pytest.mark.parametrize("start", [0.0, -5.0])
+def test_targets_must_be_positive(start):
+    with pytest.raises(ValidationError, match="Zielhöhen müssen > 0 m sein"):
+        make_inverse(param_start=start)
+
+
+def test_small_positive_target_is_accepted():
+    # Ob die Höhe erreichbar ist, entscheidet erst die Physik im Endpunkt
+    assert make_inverse(param_start=1e-9).param_start == 1e-9
+
+
+def test_inverse_max_steps_is_allowed():
+    assert make_inverse(n_steps=SERIES_MAX_STEPS_INVERSE).n_steps == SERIES_MAX_STEPS_INVERSE
+
+
+def test_inverse_more_steps_are_rejected():
+    with pytest.raises(ValidationError, match=f"höchstens {SERIES_MAX_STEPS_INVERSE} Schritte"):
+        make_inverse(n_steps=SERIES_MAX_STEPS_INVERSE + 1)
+
+
+def test_flights_per_inverse_step_match_the_binary_search():
+    # Lineare Testfunktion ohne exakten Treffer: Aufrufe der binären Suche
+    # = 2 Randwerte + Halbierungen; dazu Kontroll- und Ergebnisflug.
+    target = P_MIN + 0.3 * (P_MAX - P_MIN) + 0.123
+    r = BinarySearch().search(lambda p: p, target, P_MIN, P_MAX, P_TOL)
+    assert r.converged
+    assert r.evaluations + 2 == FLIGHTS_PER_INVERSE_STEP
+
+
+def test_inverse_limit_keeps_the_flight_budget():
+    assert SERIES_MAX_STEPS_INVERSE * FLIGHTS_PER_INVERSE_STEP <= SERIES_MAX_STEPS
+
+
+def test_target_values_are_linear_and_inclusive():
+    assert make_inverse().param_values() == [10.0, 20.0, 30.0, 40.0]
+
+
+def test_step_configs_are_only_for_forward_mode():
+    with pytest.raises(RuntimeError, match="nur für den Vorwärtsmodus"):
+        make_inverse().step_configs(EXAMPLE_ROCKET)
 
 
 # --- Vorabprüfung jedes Schritts ---------------------------------------------
@@ -226,3 +331,15 @@ def test_series_read_from_row():
     assert data["id"] == 4
     assert data["searcher"] is None
     assert data["duration_s"] == 0.5
+
+
+def test_inverse_series_read_from_row():
+    row = Series(
+        id=5, name="Zielhoehen", created_at=datetime(2026, 11, 5, 12, 0, tzinfo=timezone.utc),
+        rocket_id=1, mode="inverse", param_name="target_apogee", param_start=10.0,
+        param_stop=40.0, n_steps=4, searcher="binary", duration_s=2.0,
+    )
+    data = SeriesRead.model_validate(row).model_dump()
+    assert data["mode"] == "inverse"
+    assert data["param_name"] == "target_apogee"
+    assert data["searcher"] == "binary"
