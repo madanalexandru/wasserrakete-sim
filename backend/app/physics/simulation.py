@@ -10,6 +10,14 @@ from app.physics.airphase import T_START, simulate_airphase, temperature_after_e
 from app.physics.freeflight import drag_factor, simulate_freeflight
 from app.physics.waterphase import P_ATM, RHO_WATER, simulate_waterphase
 
+# Version des Flugmodells, wird mit jedem Flug gespeichert (flights.model_version).
+# Bei JEDER Änderung an der Flugphysik oder den Suchverfahren erhöhen und
+# im projektlog (Verlauf) mit Grund festhalten. Der Wächtertest
+# tests/test_model_version.py wird rot, wenn das vergessen wurde
+# (Entscheidung 13γ, Chat 05.11.2026).
+# Historie: "1" = Stand nach Phase 2/3 (Commit 3471852).
+MODEL_VERSION = "1"
+
 
 @dataclass
 class RocketConfig:
