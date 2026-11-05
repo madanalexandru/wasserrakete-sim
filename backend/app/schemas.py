@@ -27,14 +27,31 @@ Antworten:
   nicht dazu, sie wird nicht gespeichert. Die Feldreihenfolge ist zugleich
   die Spaltenreihenfolge für den späteren CSV-Export (prüft
   tests/test_flight_read.py).
+
+Experimentserien:
+- SeriesCreate beschreibt eine Serie: Ein Pflichtfeld der Konfiguration wird
+  linear von param_start bis param_stop (beide inklusive) in n_steps Werten
+  variiert; alle übrigen Werte stammen aus der gespeicherten Rakete.
+- Variierbar sind nur die Pflichtfelder der Flugphysik. Die Geometrie
+  ändert das Apogäum nicht und wäre als Parameter einer Serie wirkungslos.
+- Vorerst nur der Vorwärtsmodus (mode = "forward").
+- step_configs prüft jeden Schritt vorab mit RocketCreate, bevor gerechnet
+  wird. Damit gelten für jeden Schritt dieselben Regeln wie beim Anlegen
+  einer Rakete, und jede Regel steht weiter nur einmal im Code. Der erste
+  ungültige Schritt ergibt einen SeriesStepError (ein ValueError) mit
+  Schrittnummer und Wert.
+- SeriesRead enthält die Spalten der Tabelle series in ihrer Reihenfolge,
+  ohne Flugliste. Die Flüge einer Serie kommen über den CSV-Export.
 """
 
+from dataclasses import asdict
 from datetime import datetime
+from math import isfinite
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from app.models import GEOMETRY_FIELDS
+from app.models import GEOMETRY_FIELDS, REQUIRED_CONFIG_FIELDS
 from app.physics.airphase import T_START
 from app.physics.simulation import RocketConfig
 from app.physics.stability import stability_values
@@ -184,3 +201,101 @@ class FlightRead(BaseModel):
     v_burnout: float = Field(description="Geschwindigkeit am Ende des Schubs in m/s")
     h_burnout: float = Field(description="Höhe am Ende des Schubs in m")
     water_rest: float = Field(description="Nicht ausgestoßenes Wasser in m³")
+
+
+# Höchstzahl der Werte einer Serie. Annahme ohne Messung, damit eine
+# synchrone Serie in vertretbarer Zeit fertig wird; nach der
+# Durchsatzmessung überprüfen.
+SERIES_MAX_STEPS = 1000
+
+
+class SeriesStepError(ValueError):
+    """Ein Schritt der Serie verletzt eine Regel von RocketCreate."""
+
+    def __init__(self, step: int, param_name: str, value: float, msg: str):
+        self.step = step  # Nummer des Schritts, ab 0
+        self.param_name = param_name
+        self.value = value
+        self.msg = msg
+        super().__init__(f"Schritt {step} ({param_name} = {value!r}): {msg}")
+
+
+class SeriesCreate(BaseModel):
+    """Eingabe für eine Experimentserie einer gespeicherten Rakete."""
+
+    # Gleiche Grundregeln wie RocketCreate: keine unbekannten Felder,
+    # kein NaN oder unendlich.
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    name: str = Field(min_length=1, description="Frei wählbarer Name der Serie")
+    mode: Literal["forward"] = Field(description="Modus der Serie, vorerst nur forward")
+    # Literal mit Tupel: erlaubt genau die Pflichtfelder der Konfiguration
+    param_name: Literal[REQUIRED_CONFIG_FIELDS] = Field(
+        description="Variierter Parameter (Pflichtfeld der Konfiguration, SI)"
+    )
+    param_start: float = Field(description="Erster Wert, SI-Einheit des Parameters")
+    param_stop: float = Field(description="Letzter Wert, SI-Einheit des Parameters")
+    n_steps: int = Field(
+        ge=2, le=SERIES_MAX_STEPS, description="Anzahl der Werte einschließlich Start und Stopp"
+    )
+
+    def param_values(self) -> list[float]:
+        """Lineare Werte von param_start bis param_stop, beide inklusive.
+
+        Der letzte Wert wird exakt auf param_stop gesetzt, weil die Rechnung
+        mit Gleitkommazahlen ihn sonst um eine Rundung verfehlen kann.
+        """
+        span = self.param_stop - self.param_start
+        last = self.n_steps - 1
+        values = [self.param_start + span * i / last for i in range(last)]
+        values.append(self.param_stop)
+        return values
+
+    @model_validator(mode="after")
+    def check_range(self):
+        if not self.param_start < self.param_stop:
+            raise ValueError("param_start muss kleiner als param_stop sein")
+        values = self.param_values()
+        # Sehr weit auseinanderliegende Grenzen können beim Rechnen
+        # überlaufen; sehr nahe Grenzen ergeben gleiche Werte.
+        if not all(isfinite(v) for v in values):
+            raise ValueError("Die Werte der Serie sind nicht endlich berechenbar")
+        if any(b <= a for a, b in zip(values, values[1:])):
+            raise ValueError("Die Werte der Serie sind nicht streng steigend (Abstand zu klein)")
+        return self
+
+    def step_configs(self, rocket: RocketConfig) -> list[RocketConfig]:
+        """Eine RocketConfig pro Schritt, jeder Schritt vorab mit RocketCreate geprüft.
+
+        Alle Werte außer param_name stammen aus rocket. Der erste ungültige
+        Schritt bricht mit SeriesStepError ab; es wird nichts gerechnet.
+        """
+        base = {"name": self.name, **asdict(rocket)}
+        configs = []
+        for step, value in enumerate(self.param_values()):
+            try:
+                checked = RocketCreate(**{**base, self.param_name: value})
+            except ValidationError as err:
+                msg = err.errors()[0]["msg"]
+                raise SeriesStepError(step, self.param_name, value, msg) from err
+            configs.append(checked.to_config())
+        return configs
+
+
+class SeriesRead(BaseModel):
+    """Antwort: eine gespeicherte Serie, Spalten wie die Tabelle series."""
+
+    # from_attributes=True: liest die Werte direkt aus der SQLAlchemy-Zeile.
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    created_at: datetime
+    rocket_id: int
+    mode: str
+    param_name: str
+    param_start: float
+    param_stop: float
+    n_steps: int
+    searcher: str | None  # nur im inversen Modus
+    duration_s: float | None = Field(description="Rechnen und Schreiben aller Flüge in s")
