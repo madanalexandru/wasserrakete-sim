@@ -33,18 +33,32 @@ Flug abrufen (GET /api/flights/{id}):
 
 Serie starten (POST /api/rockets/{id}/series):
 - Variiert einen Parameter der gespeicherten Rakete (SeriesCreate) und
-  speichert jeden Flug als Kassenbon mit series_id. Vorerst nur der
-  Vorwärtsmodus.
-- Reihenfolge: erst alle Schritte vorab prüfen (wie beim Anlegen einer
-  Rakete), dann alle Flüge rechnen, dann alles in einer Transaktion
-  speichern. Scheitert ein Schritt, antwortet die API mit 422 und der
-  Schrittnummer, und es wird nichts gespeichert, auch nicht die Serie.
-- Ungültiger Schritt -> 422 mit type "value_error"; ValueError oder
-  RuntimeError der Simulation -> 422 mit type "simulation_error". Andere
-  Fehler bleiben 500.
-- duration_s = Rechnen aller Flüge + Schreiben in die Datenbank (bis nach
-  flush), gemessen mit perf_counter. Nicht enthalten: Vorabprüfung und
-  Commit.
+  speichert jeden Flug als Kassenbon mit series_id.
+- Reihenfolge: erst alle Schritte vorab prüfen, dann alle Flüge rechnen,
+  dann alles in einer Transaktion speichern. Scheitert ein Schritt,
+  antwortet die API mit 422 und der Schrittnummer, und es wird nichts
+  gespeichert, auch nicht die Serie.
+- Vorwärtsmodus: Die Vorabprüfung schickt jeden Schritt durch dieselben
+  Regeln wie beim Anlegen einer Rakete. Ungültiger Schritt -> 422 mit type
+  "value_error".
+- Inverser Modus: Zu jeder Zielhöhe sucht find_start_pressure den
+  Startdruck mit dem gewählten Suchverfahren. Danach rechnet der Endpunkt
+  einen Ergebnisflug mit dem gefundenen Druck, weil die Suche nur das
+  Apogäum liefert, der Kassenbon aber alle Ergebnisse braucht. Gespeichert
+  wird die Konfiguration mit dem gefundenen Druck, dazu Zielhöhe,
+  Suchverfahren und search_evaluations (Flüge der Suche, ohne Kontroll-
+  und Ergebnisflug).
+- Vorabprüfung im inversen Modus: je ein Flug beim kleinsten und größten
+  Suchdruck. Liegt eine Zielhöhe außerhalb, ist sie wegen der Monotonie
+  nicht erreichbar -> 422 vor der ersten Suche. Die Meldung nennt keine
+  Apogäen, nur die Grenzen des Suchdrucks.
+- Eine nicht konvergierte Suche ergibt 422; jeder gespeicherte inverse
+  Flug hat damit ein Druckintervall von höchstens P_TOL.
+- ValueError oder RuntimeError der Simulation oder der Suche -> 422 mit
+  type "simulation_error". Andere Fehler bleiben 500.
+- duration_s = Rechnen aller Flüge (im inversen Modus Suche und
+  Ergebnisflug) + Schreiben in die Datenbank (bis nach flush), gemessen
+  mit perf_counter. Nicht enthalten: Vorabprüfung und Commit.
 - Synchron: Die Antwort kommt erst, wenn alle Flüge gespeichert sind.
   Die Höchstzahl der Schritte steht in SeriesCreate.
 
@@ -65,6 +79,7 @@ CSV-Export (GET /api/series/{id}/flights.csv):
 """
 
 import os
+from dataclasses import replace
 from time import perf_counter
 
 from fastapi import Depends, FastAPI, HTTPException, Response
@@ -74,12 +89,17 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.export import flights_to_csv
 from app.models import GEOMETRY_FIELDS, Flight, Rocket, Series, config_values, result_values
+from app.physics.inverse import P_MAX, P_MIN, P_TOL, STEP0, find_start_pressure
 from app.physics.simulation import MODEL_VERSION, RocketConfig, simulate_flight
 from app.physics.stability import stability_values
 from app.schemas import (
-    FlightRead, RocketCreate, RocketRead, SeriesCreate, SeriesRead, SeriesStepError,
-    StabilityRead,
+    INVERSE_PARAM, FlightRead, RocketCreate, RocketRead, SeriesCreate, SeriesRead,
+    SeriesStepError, StabilityRead,
 )
+from app.search.binary_search import BinarySearch
+from app.search.exponential_search import ExponentialSearch
+from app.search.interpolation_search import InterpolationSearch
+from app.search.searchable import Searchable
 
 # DEBUG kommt aus der .env (über docker-compose.yml).
 # Nur bei DEBUG=true ist die API-Dokumentation unter /api/docs sichtbar.
@@ -187,6 +207,86 @@ def step_error(step: int, msg: str, error_type: str) -> HTTPException:
     )
 
 
+# Namen der Suchverfahren (SEARCHERS in app/schemas.py) -> neue Instanz.
+# Die Exponentialsuche startet mit derselben Schrittweite wie der Standard
+# in find_start_pressure; ohne step0 begänne sie mit (hi - lo) / 1024.
+SEARCHER_FACTORIES = {
+    "binary": BinarySearch,
+    "exponential": lambda: ExponentialSearch(step0=STEP0),
+    "interpolation": InterpolationSearch,  # mit Illinois-Regel
+}
+
+
+def make_searcher(name: str) -> Searchable:
+    return SEARCHER_FACTORIES[name]()
+
+
+def forward_rows(configs: list[RocketConfig], param_name: str) -> list[dict]:
+    """Rechnet einen Flug pro Schritt; Spaltenwerte der Flüge."""
+    rows = []
+    for step, cfg in enumerate(configs):
+        try:
+            result = simulate_flight(cfg)
+        except (ValueError, RuntimeError) as err:
+            value = getattr(cfg, param_name)
+            msg = f"Schritt {step} ({param_name} = {value!r}): {err}"
+            raise step_error(step, msg, "simulation_error") from err
+        rows.append({**config_values(cfg), **result_values(result)})
+    return rows
+
+
+def check_targets_reachable(cfg: RocketConfig, targets: list[float]) -> None:
+    """Vorabprüfung: jede Zielhöhe zwischen den Apogäen bei P_MIN und P_MAX.
+
+    Gleichheit ist erlaubt, weil die Suchverfahren einen exakten Treffer am
+    Rand annehmen. Ein Fehler der Simulation selbst ergibt 422 wie beim
+    Einzelflug.
+    """
+    try:
+        lowest = simulate_flight(replace(cfg, p0_gauge=P_MIN)).apogee
+        highest = simulate_flight(replace(cfg, p0_gauge=P_MAX)).apogee
+    except (ValueError, RuntimeError) as err:
+        msg = f"Vorabprüfung bei {P_MIN!r} Pa bzw. {P_MAX!r} Pa: {err}"
+        raise HTTPException(
+            status_code=422,
+            detail=[{"loc": ["path", "rocket_id"], "msg": msg, "type": "simulation_error"}],
+        ) from err
+    for step, target in enumerate(targets):
+        label = f"Schritt {step} ({INVERSE_PARAM} = {target!r})"
+        if target < lowest:
+            msg = f"{label}: Zielhöhe liegt unter dem Apogäum beim Suchdruck {P_MIN!r} Pa"
+        elif target > highest:
+            msg = f"{label}: Zielhöhe liegt über dem Apogäum beim Suchdruck {P_MAX!r} Pa"
+        else:
+            continue
+        raise step_error(step, msg, "simulation_error")
+
+
+def inverse_rows(cfg: RocketConfig, targets: list[float], searcher: str) -> list[dict]:
+    """Sucht pro Zielhöhe den Startdruck und rechnet den Ergebnisflug."""
+    rows = []
+    for step, target in enumerate(targets):
+        label = f"Schritt {step} ({INVERSE_PARAM} = {target!r})"
+        try:
+            found = find_start_pressure(cfg, target, searcher=make_searcher(searcher))
+            flown = replace(cfg, p0_gauge=found.p0_gauge)
+            result = simulate_flight(flown)  # Ergebnisflug mit dem gefundenen Druck
+        except (ValueError, RuntimeError) as err:
+            raise step_error(step, f"{label}: {err}", "simulation_error") from err
+        if not found.converged:
+            msg = (f"{label}: Suche nicht konvergiert "
+                   f"(Restintervall {found.width!r} Pa > {P_TOL!r} Pa)")
+            raise step_error(step, msg, "simulation_error")
+        rows.append({
+            **config_values(flown),
+            **result_values(result),
+            "target_apogee": target,
+            "searcher": searcher,
+            "search_evaluations": found.search_evaluations,
+        })
+    return rows
+
+
 @app.post("/api/rockets/{rocket_id}/series", response_model=SeriesRead, status_code=201)
 def create_series(
     rocket_id: int, series_in: SeriesCreate, session: Session = Depends(get_session)
@@ -195,37 +295,32 @@ def create_series(
     rocket = session.get(Rocket, rocket_id)
     if rocket is None:
         raise HTTPException(status_code=404, detail="Rakete nicht gefunden")
+    cfg = rocket.to_config()
 
-    # 1. Alle Schritte vorab prüfen, bevor irgendetwas gerechnet wird
-    try:
-        configs = series_in.step_configs(rocket.to_config())
-    except SeriesStepError as err:
-        raise step_error(err.step, str(err), "value_error") from err
+    # 1. Vorabprüfung, bevor die gemessene Rechnung beginnt
+    if series_in.mode == "forward":
+        try:
+            configs = series_in.step_configs(cfg)
+        except SeriesStepError as err:
+            raise step_error(err.step, str(err), "value_error") from err
+    else:
+        targets = series_in.param_values()
+        check_targets_reachable(cfg, targets)
 
     # 2. Alle Flüge rechnen; noch nichts in der Session
     start = perf_counter()
-    results = []
-    for step, cfg in enumerate(configs):
-        try:
-            results.append(simulate_flight(cfg))
-        except (ValueError, RuntimeError) as err:
-            value = getattr(cfg, series_in.param_name)
-            msg = f"Schritt {step} ({series_in.param_name} = {value!r}): {err}"
-            raise step_error(step, msg, "simulation_error") from err
+    if series_in.mode == "forward":
+        rows = forward_rows(configs, series_in.param_name)
+    else:
+        rows = inverse_rows(cfg, targets, series_in.searcher)
 
     # 3. Serie und Flüge schreiben; erst der Commit macht alles sichtbar
     series = Series(rocket_id=rocket.id, **series_in.model_dump())
     session.add(series)
     session.flush()  # vergibt series.id für die Flüge
     session.add_all(
-        Flight(
-            rocket_id=rocket.id,
-            series_id=series.id,
-            model_version=MODEL_VERSION,
-            **config_values(cfg),
-            **result_values(result),
-        )
-        for cfg, result in zip(configs, results)
+        Flight(rocket_id=rocket.id, series_id=series.id, model_version=MODEL_VERSION, **row)
+        for row in rows
     )
     session.flush()  # alle Flüge an die Datenbank gesendet
     series.duration_s = perf_counter() - start
