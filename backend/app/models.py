@@ -10,10 +10,12 @@ Die Verbindung zur Datenbank (Engine, Session) folgt in einem eigenen
 Schritt. Diese Datei beschreibt nur die Tabellen.
 """
 
+from dataclasses import fields
+
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import declarative_base
 
-from app.physics.simulation import RocketConfig
+from app.physics.simulation import FlightResult, RocketConfig
 
 Base = declarative_base()
 
@@ -37,6 +39,20 @@ CONFIG_FIELDS = REQUIRED_CONFIG_FIELDS + GEOMETRY_FIELDS
 def config_values(cfg: RocketConfig) -> dict:
     """RocketConfig -> Spaltenwerte, z. B. Rocket(name="A", **config_values(cfg))."""
     return {name: getattr(cfg, name) for name in CONFIG_FIELDS}
+
+
+# Ergebnisspalten eines Flugs: Felder von FlightResult ohne Flugkurve
+# (die Kurve wird nicht gespeichert, sie ist aus der Kopie neu berechenbar).
+RESULT_FIELDS = tuple(f.name for f in fields(FlightResult) if f.name != "trajectory")
+
+
+def result_values(result: FlightResult) -> dict:
+    """FlightResult -> Ergebnisspalten, z. B. Flight(**result_values(r), ...).
+
+    Bewusst ohne dataclasses.asdict: asdict würde die Flugkurve
+    (Beispielrakete: rund 10 000 Punkte) mitkopieren und gleich verwerfen.
+    """
+    return {name: getattr(result, name) for name in RESULT_FIELDS}
 
 
 class ConfigColumns:
