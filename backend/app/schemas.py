@@ -5,25 +5,28 @@ ungültige Anfragen beantwortet FastAPI mit 422, bevor der Endpunkt läuft.
 Alle Werte in SI-Einheiten, Feldnamen wie RocketConfig und die Spalten in
 app/models.py (prüft tests/test_schemas.py).
 
-Entscheidungen (Chat 02.11.2026):
+Regeln:
 - Einfache Regeln (> 0, 3 oder 4 Finnen, ...) stehen als Feld-Grenzen hier,
   damit sie in /api/docs sichtbar sind.
 - Die Geometrie-Regeln über mehrere Felder (Schwerpunkt innerhalb der
   Rakete, Wassersäule nicht länger als die Rakete, Barrowman-Grenzen) prüft
-  die Physik selbst (check_geometry, check_mass_geometry, cg_with_water).
-  Das Schema ruft diese Funktionen auf, statt sie nachzubauen. So steht
-  jede dieser Regeln nur einmal im Code.
+  die Physik selbst: Das Schema ruft stability_values auf, statt die Regeln
+  nachzubauen. So steht jede dieser Regeln nur einmal im Code.
+  stability_values liefert nur endliche Werte oder einen ValueError;
+  extreme Eingaben (z. B. d_body = 1e-200) ergeben so 422 statt 500.
 - Keine Obergrenzen: Für Grenzwerte gibt es (noch) keine Quelle.
 - d_nozzle < d_body ist eine reine Geometrie-Regel; die Physik prüft sie nicht.
 
-Ergänzt (Chat Teil 4, 02.11.2026):
-- Entscheidung 9x: Das Schema ruft stability_values auf. Diese Funktion
-  enthält check_geometry, check_mass_geometry und cg_with_water und
-  liefert außerdem nur endliche Werte oder einen ValueError. Extreme
-  Eingaben (z. B. d_body = 1e-200) ergeben so 422 statt 500.
-- Entscheidung 7a: RocketRead enthält das Feld stability (berechnet, nicht
-  gespeichert, ohne Urteil; Entscheidung 3B). Ohne Geometrie ist es null.
-  Gefüllt wird es im Endpunkt (app/main.py).
+Antworten:
+- RocketRead enthält das Feld stability (berechnet, nicht gespeichert, ohne
+  Urteil). Ohne Geometrie ist es null. Gefüllt wird es im Endpunkt
+  (app/main.py).
+- FlightRead ist der vollständige Kassenbon eines Flugs: Kopf (id, Zeit,
+  Rakete, Serie, model_version), Kopie der Konfiguration, Felder des
+  inversen Modus (null im Vorwärtsmodus) und Ergebnis. Die Flugkurve gehört
+  nicht dazu, sie wird nicht gespeichert. Die Feldreihenfolge ist zugleich
+  die Spaltenreihenfolge für den späteren CSV-Export (prüft
+  tests/test_flight_read.py).
 """
 
 from datetime import datetime
@@ -95,7 +98,7 @@ class RocketCreate(BaseModel):
 
 
 class StabilityRead(BaseModel):
-    """Stabilitätswerte nach Barrowman, berechnet, ohne Urteil (Entscheidung 3B)."""
+    """Stabilitätswerte nach Barrowman, berechnet, ohne Urteil."""
 
     # from_attributes=True: liest die Werte direkt aus StabilityValues.
     model_config = ConfigDict(from_attributes=True)
@@ -134,5 +137,50 @@ class RocketRead(BaseModel):
     x_fin: float | None
     x_cg_empty: float | None
     l_total: float | None
-    # Berechnet, nicht gespeichert; null ohne Geometrie (Entscheidung 7a)
+    # Berechnet, nicht gespeichert; null ohne Geometrie
     stability: StabilityRead | None = None
+
+
+class FlightRead(BaseModel):
+    """Antwort: ein gespeicherter Flug als vollständiger Kassenbon."""
+
+    # from_attributes=True: liest die Werte direkt aus der SQLAlchemy-Zeile.
+    model_config = ConfigDict(from_attributes=True)
+
+    # Kopf
+    id: int
+    created_at: datetime
+    rocket_id: int
+    series_id: int | None  # null = Einzelflug
+    model_version: str
+    # Kopie der Konfiguration, mit der gerechnet wurde (SI, wie RocketConfig)
+    v_bottle: float
+    v_water0: float
+    p0_gauge: float
+    d_nozzle: float
+    m_empty: float
+    c_w: float
+    d_body: float
+    temp0: float
+    nose_shape: str | None
+    l_nose: float | None
+    n_fins: int | None
+    fin_root_chord: float | None
+    fin_tip_chord: float | None
+    fin_span: float | None
+    fin_sweep: float | None
+    x_fin: float | None
+    x_cg_empty: float | None
+    l_total: float | None
+    # Nur im inversen Modus gefüllt, sonst null
+    target_apogee: float | None
+    searcher: str | None
+    search_evaluations: int | None
+    # Ergebnis wie FlightResult, ohne Flugkurve
+    apogee: float = Field(description="Apogäum in m")
+    t_apogee: float = Field(description="Zeitpunkt des Apogäums in s")
+    t_water_end: float = Field(description="Ende Wasserschub in s")
+    t_air_end: float = Field(description="Ende Luftstoß in s")
+    v_burnout: float = Field(description="Geschwindigkeit am Ende des Schubs in m/s")
+    h_burnout: float = Field(description="Höhe am Ende des Schubs in m")
+    water_rest: float = Field(description="Nicht ausgestoßenes Wasser in m³")

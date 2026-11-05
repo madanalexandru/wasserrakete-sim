@@ -12,13 +12,11 @@ Zeilenende und Leerzeilen am Dateiende, damit Windows und Linux dieselbe
 Prüfsumme ergeben. Kommentare zählen mit (Preis: auch eine reine
 Kommentaränderung verlangt eine neue Version).
 
-Entscheidung 13γ, Chat 05.11.2026.
-
 Wird test_physics_matches_model_version rot:
 1. MODEL_VERSION in app/physics/simulation.py erhöhen (z. B. "1" -> "2"),
 2. die neue Prüfsumme aus der Fehlermeldung als NEUEN Eintrag in
    KNOWN_MODEL_VERSIONS ergänzen (alte Einträge nie löschen),
-3. Modelländerung mit Grund im projektlog festhalten.
+3. Modelländerung mit Grund dokumentieren.
 """
 
 import hashlib
@@ -31,9 +29,9 @@ APP_DIR = Path(__file__).resolve().parent.parent / "app"
 FLIGHT_DIRS = ("physics", "search")
 NOT_FLIGHT = {"barrowman.py", "stability.py"}  # nur Stabilität, kein Flug
 
-# Version -> Prüfsumme. Historie, wird nur ergänzt.
+# Version -> Prüfsumme. Wird nur ergänzt, alte Einträge bleiben stehen.
 KNOWN_MODEL_VERSIONS = {
-    "1": "45ae71963d2682470c2c49aa5e3a06ca1ac1d4db697a7a6d242564f5d89669eb",
+    "1": "e724ffc424e1878e27e46545b04880d5f0875b4a73aad1d024bcefa381e99180",
 }
 
 

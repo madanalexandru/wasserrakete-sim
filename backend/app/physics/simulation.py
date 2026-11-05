@@ -11,11 +11,8 @@ from app.physics.freeflight import drag_factor, simulate_freeflight
 from app.physics.waterphase import P_ATM, RHO_WATER, simulate_waterphase
 
 # Version des Flugmodells, wird mit jedem Flug gespeichert (flights.model_version).
-# Bei JEDER Änderung an der Flugphysik oder den Suchverfahren erhöhen und
-# im projektlog (Verlauf) mit Grund festhalten. Der Wächtertest
-# tests/test_model_version.py wird rot, wenn das vergessen wurde
-# (Entscheidung 13γ, Chat 05.11.2026).
-# Historie: "1" = Stand nach Phase 2/3 (Commit 3471852).
+# Bei jeder Änderung an der Flugphysik oder den Suchverfahren erhöhen.
+# Sonst wird tests/test_model_version.py rot.
 MODEL_VERSION = "1"
 
 
@@ -46,7 +43,7 @@ class RocketConfig:
 
 
 # Beispielrakete: plausible Werte für eine 1,5-l-Flasche, NICHT gemessen.
-# c_w = 0,5 ist ein Platzhalter bis zur Sensitivitätsanalyse (Phase 4).
+# c_w = 0,5 ist ein Platzhalter bis zur Sensitivitätsanalyse.
 EXAMPLE_ROCKET = RocketConfig(
     v_bottle=1.5e-3,
     v_water0=0.5e-3,
