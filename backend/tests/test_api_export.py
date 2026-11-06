@@ -6,8 +6,13 @@ bewusst kopiert statt importiert, damit die Dateien unabhängig bleiben.
 Geprüft wird: Statuscode, Content-Type und Dateiname; eine Zeile pro Flug,
 nur Flüge dieser Serie; jede Zeile = JSON-Antwort des Einzelflugs; Werte
 exakt wie in der Datenbank; Sortierung nach dem variierten Parameter statt
-nach id; reines ASCII ohne BOM; der Export rechnet und schreibt nichts;
-unbekannte ID -> 404, keine Zahl -> 422.
+nach id, auch nach der Zielhöhe einer inversen Serie; im inversen Modus
+sind Zielhöhe, Suchverfahren und search_evaluations gefüllt; reines ASCII
+ohne BOM; der Export rechnet und schreibt nichts; unbekannte ID -> 404,
+keine Zahl -> 422.
+
+Die inverse Serie läuft mit einem linearen Ersatzmodell der Flugphysik
+(Apogäum = Startdruck / 1e4), damit der Test schnell bleibt.
 
 Für die Sortierung werden Zeilen direkt in die Datenbank geschrieben, damit
 die IDs absichtlich nicht in Schrittfolge liegen (über die API nicht
@@ -33,11 +38,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 import app.main as main
+import app.physics.inverse as inverse
 from app.db import get_session
 from app.export import CSV_COLUMNS
 from app.main import app
 from app.models import GEOMETRY_FIELDS, Base, Flight, Rocket, Series, config_values
-from app.physics.simulation import EXAMPLE_ROCKET
+from app.physics.simulation import EXAMPLE_ROCKET, FlightResult
 from app.schemas import FlightRead
 
 GEOMETRY = dict(
@@ -52,6 +58,11 @@ FULL = {**MINIMAL, **GEOMETRY}
 SERIES = dict(
     name="Druckserie", mode="forward", param_name="p0_gauge",
     param_start=2e5, param_stop=6e5, n_steps=3,
+)
+
+INVERSE = dict(
+    name="Zielhoehen", mode="inverse", param_name="target_apogee",
+    param_start=10.0, param_stop=40.0, n_steps=4,
 )
 
 RESULT = dict(
@@ -119,17 +130,19 @@ def to_read(row: dict) -> FlightRead:
     return FlightRead.model_validate({k: (v if v != "" else None) for k, v in row.items()})
 
 
-def insert_series(engine, param_name: str, values: list[float]) -> int:
+def insert_series(engine, param_name: str, values: list[float], mode: str = "forward") -> int:
     """Serie direkt in die Datenbank schreiben; Flüge in der Reihenfolge von values.
 
-    So lassen sich IDs erzeugen, die nicht in Schrittfolge liegen.
+    So lassen sich IDs erzeugen, die nicht in Schrittfolge liegen. Mit
+    param_name = "target_apogee" landet der Wert in der Spalte target_apogee,
+    die Konfiguration bleibt für alle Flüge gleich.
     """
     with Session(engine) as session:
         rocket = Rocket(name="Direkt", **config_values(EXAMPLE_ROCKET))
         session.add(rocket)
         session.flush()
         series = Series(
-            name="Direkt", rocket_id=rocket.id, mode="forward", param_name=param_name,
+            name="Direkt", rocket_id=rocket.id, mode=mode, param_name=param_name,
             param_start=min(values, default=0.0), param_stop=max(values, default=0.0),
             n_steps=len(values),
         )
@@ -145,6 +158,16 @@ def insert_series(engine, param_name: str, values: list[float]) -> int:
             session.flush()  # eine ID pro Flug, in der Reihenfolge von values
         session.commit()
         return series.id
+
+
+@pytest.fixture
+def fake(monkeypatch):
+    """Lineares Ersatzmodell der Flugphysik für die inverse Serie."""
+    def fake_flight(cfg):
+        return FlightResult(trajectory=[], **{**RESULT, "apogee": cfg.p0_gauge / 1e4})
+
+    monkeypatch.setattr(main, "simulate_flight", fake_flight)
+    monkeypatch.setattr(inverse, "simulate_flight", fake_flight)
 
 
 # --- Erfolgsfall -------------------------------------------------------------
@@ -210,6 +233,18 @@ def test_rocket_without_geometry_gives_empty_fields(client):
         assert row["target_apogee"] == row["searcher"] == row["search_evaluations"] == ""
 
 
+def test_inverse_series_fills_the_inverse_columns(client, fake):
+    series_id = start_series(client, new_rocket(client), **INVERSE)
+    rows = rows_of(export(client, series_id))
+    assert [float(row["target_apogee"]) for row in rows] == [10.0, 20.0, 30.0, 40.0]
+    assert {row["searcher"] for row in rows} == {"exponential"}
+    assert all(int(row["search_evaluations"]) > 0 for row in rows)
+    for row in rows:
+        single = client.get(f"/api/flights/{row['id']}").json()
+        assert to_read(row) == FlightRead.model_validate(single)
+    assert export(client, series_id).content.isascii()
+
+
 def test_body_is_ascii_without_bom(client):
     series_id = start_series(client, new_rocket(client))
     body = export(client, series_id).content
@@ -232,6 +267,13 @@ def test_sorted_by_other_param(client, engine):
     series_id = insert_series(engine, "c_w", [0.7, 0.3, 0.5])
     rows = rows_of(export(client, series_id))
     assert [float(row["c_w"]) for row in rows] == [0.3, 0.5, 0.7]
+
+
+def test_sorted_by_target_apogee_not_by_id(client, engine):
+    series_id = insert_series(engine, "target_apogee", [40.0, 10.0, 25.0], mode="inverse")
+    rows = rows_of(export(client, series_id))
+    assert [float(row["target_apogee"]) for row in rows] == [10.0, 25.0, 40.0]
+    assert [int(row["id"]) for row in rows] != sorted(int(row["id"]) for row in rows)
 
 
 def test_series_without_flights_gives_header_only(client, engine):
