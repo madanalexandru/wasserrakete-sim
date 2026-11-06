@@ -17,6 +17,15 @@
     table { border-collapse: collapse; }
     td { padding: 0.2rem 0.6rem 0.2rem 0; }
     @media (max-width: 30rem) { .field { grid-template-columns: minmax(0, 1fr) 7rem 2.5rem; } }
+    #flight-errors { color: #a00000; }
+    #flight-errors:empty { display: none; }
+    /* Feste Zeichenfläche (viewBox), skaliert auf die volle Breite */
+    #chart { display: block; width: 100%; height: auto; }
+    #chart text { font-size: 16px; fill: #333; }
+    #chart .grid { stroke: #ddd; }
+    #chart .axis { stroke: #333; }
+    #chart .curve { fill: none; stroke: #0055aa; stroke-width: 2; }
+    #chart .apogee { fill: #a00000; }
   </style>
 </head>
 <body>
@@ -56,6 +65,17 @@
     <p id="result-head"></p>
     <table id="stability"></table>
     <p id="stability-note" class="hint"></p>
+
+    <h2>Flug</h2>
+    <p><button id="fly" type="button">Flug simulieren</button></p>
+    <p class="hint">Jeder Klick rechnet und speichert einen neuen Flug dieser Rakete.</p>
+    <div id="flight-errors" role="alert"></div>
+    <div id="flight" hidden>
+      <p id="flight-head"></p>
+      <p id="apogee"></p>
+      <svg id="chart" viewBox="0 0 600 300" role="img" aria-label="Flugkurve: Höhe über der Zeit"></svg>
+      <p class="hint">Flugkurve aus dem gespeicherten Flug neu gerechnet, für die Anzeige auf höchstens 500 Punkte ausgedünnt.</p>
+    </div>
   </section>
 
   <script type="module" src="app.js"></script>
