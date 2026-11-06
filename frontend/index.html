@@ -4,9 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wasserraketen-Simulation</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 1rem auto; padding: 0 1rem; line-height: 1.4; }
+    /* min-width: 0, weil ein fieldset sonst nie schmaler als sein Inhalt wird */
+    fieldset { margin: 1rem 0; min-width: 0; }
+    .field { display: grid; grid-template-columns: minmax(0, 1fr) 9rem 3rem; gap: 0.5rem; align-items: center; margin: 0.4rem 0; }
+    .field input, .field select { width: 100%; box-sizing: border-box; }
+    .field label { overflow-wrap: anywhere; }
+    .hint { font-size: 0.9em; color: #555; }
+    #errors { color: #a00000; }
+    #errors:empty { display: none; }
+    table { border-collapse: collapse; }
+    td { padding: 0.2rem 0.6rem 0.2rem 0; }
+    @media (max-width: 30rem) { .field { grid-template-columns: minmax(0, 1fr) 7rem 2.5rem; } }
+  </style>
 </head>
 <body>
   <h1>Wasserraketen-Simulation</h1>
-  <p>Frontend läuft.</p>
+
+  <h2>Rakete anlegen</h2>
+  <form id="rocket-form" novalidate>
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" autocomplete="off">
+      <span></span>
+    </div>
+
+    <fieldset>
+      <legend>Flugphysik</legend>
+      <div id="required-fields"></div>
+      <div id="optional-fields"></div>
+      <p class="hint">Komma oder Punkt als Dezimalzeichen. Temperatur leer lassen = Standardwert des Servers.</p>
+    </fieldset>
+
+    <p>
+      <label><input id="with-geometry" type="checkbox"> Geometrie angeben (für Stabilitätswerte nach Barrowman)</label>
+    </p>
+    <fieldset id="geometry" hidden>
+      <legend>Geometrie (alle Längen ab Nasenspitze)</legend>
+      <div id="geometry-fields"></div>
+      <p class="hint">Alle zehn Felder oder keines.</p>
+    </fieldset>
+
+    <button id="submit" type="submit">Rakete anlegen</button>
+  </form>
+
+  <div id="errors" role="alert"></div>
+
+  <section id="result" hidden>
+    <h2>Angelegt</h2>
+    <p id="result-head"></p>
+    <table id="stability"></table>
+    <p id="stability-note" class="hint"></p>
+  </section>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>
