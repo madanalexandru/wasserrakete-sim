@@ -1,5 +1,7 @@
 // Reine Hilfsfunktionen des Frontends, ohne Zugriff auf die Seite.
 // Dadurch lassen sie sich mit dem Testläufer von Node prüfen.
+// Inhalt: Formular (Feldlisten, Umrechnung, Anfrage, Fehler, Stabilität)
+// und Flugkurve (Zeichendaten für das Diagramm, Apogäum als Text).
 //
 // Die API rechnet in SI-Einheiten. Die Oberfläche nutzt feste, gewohnte
 // Einheiten (l, bar, mm, g, °C) und rechnet vor dem Senden um.
@@ -196,4 +198,78 @@ export function formatStability(stability) {
     { label: "Stabilitätsmaß beim Start", text: cal(stability.margin_start) },
     { label: "Stabilitätsmaß leer", text: cal(stability.margin_empty) },
   ];
+}
+
+// --- Flugkurve ---------------------------------------------------------------
+// Aus der Antwort von GET /api/flights/{id}/trajectory werden nur Zahlen
+// und Texte für das Diagramm berechnet; die Elemente baut app.js (mit
+// textContent). Die Kurve wird nicht verändert, nur in Bildkoordinaten
+// umgerechnet.
+
+// Zeichenfläche in SVG-Einheiten (viewBox); per CSS auf volle Breite
+// skaliert. Ränder für Achsenmarken und Achsentitel.
+export const CHART = { width: 600, height: 300, left: 55, right: 15, top: 15, bottom: 45 };
+
+// Schrittweite der Achsenmarken im 1-2-5-Raster, sodass höchstens
+// maxTicks Schritte bis max nötig sind. max <= 0 -> Schritt 1.
+export function niceStep(max, maxTicks = 5) {
+  if (!(max > 0)) return 1;
+  const raw = max / maxTicks;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const norm = raw / magnitude;
+  const factor = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+  return factor * magnitude;
+}
+
+// Achse von 0 bis zur ersten Marke, die max erreicht: Endwert und Marken mit Text.
+// Nachkommastellen aus der Schrittweite (0,5 -> 1 Stelle, 5 -> keine).
+// Werte auf diese Stellen gerundet, damit 3 · 0,1 genau 0,3 ergibt und
+// nicht 0.30000000000000004. Die Toleranz 1e-9 verhindert eine
+// überflüssige Marke, wenn max / step durch Rundung knapp über einer
+// ganzen Zahl liegt.
+export function axisTicks(max, maxTicks = 5) {
+  const step = niceStep(max, maxTicks);
+  const count = Math.max(1, Math.ceil(max / step - 1e-9));
+  const digits = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  const ticks = [];
+  for (let i = 0; i <= count; i++) {
+    const value = Number((i * step).toFixed(digits));
+    ticks.push({ value, text: formatNumber(value, digits) });
+  }
+  return { end: ticks[count].value, ticks };
+}
+
+// Antwort der Flugkurve -> Zeichendaten in Bildkoordinaten.
+// x nach rechts = Zeit, y nach oben = Höhe (in SVG wächst y nach unten).
+// Ergebnis: path (Linienzug als SVG-Pfad), xTicks/yTicks ({ pos, text }),
+// apogee ({ x, y }) = letzter Punkt der Kurve.
+export function chartData(trajectory) {
+  const { t, h } = trajectory ?? {};
+  if (!Array.isArray(t) || !Array.isArray(h) || t.length < 2 || t.length !== h.length) {
+    throw new Error("Flugkurve fehlt oder ist unvollständig");
+  }
+  if (![...t, ...h].every(Number.isFinite)) {
+    throw new Error("Flugkurve enthält ungültige Zahlen");
+  }
+  const { width, height, left, right, top, bottom } = CHART;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const xAxis = axisTicks(Math.max(...t));
+  const yAxis = axisTicks(Math.max(...h));
+  const x = (value) => left + (value / xAxis.end) * plotW;
+  const y = (value) => top + plotH - (value / yAxis.end) * plotH;
+
+  const coords = t.map((ti, i) => `${x(ti).toFixed(2)},${y(h[i]).toFixed(2)}`);
+  const last = t.length - 1;
+  return {
+    path: `M${coords.join(" L")}`,
+    xTicks: xAxis.ticks.map((tick) => ({ pos: x(tick.value), text: tick.text })),
+    yTicks: yAxis.ticks.map((tick) => ({ pos: y(tick.value), text: tick.text })),
+    apogee: { x: x(t[last]), y: y(h[last]) },
+  };
+}
+
+// Apogäum und Zeitpunkt aus FlightRead als Text, 2 Nachkommastellen.
+export function formatApogee(flight) {
+  return `Apogäum: ${formatNumber(flight.apogee, 2)} m nach ${formatNumber(flight.t_apogee, 2)} s`;
 }
