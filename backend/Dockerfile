@@ -9,6 +9,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Migrationen (Alembic): ändern sich seltener als der Code, deshalb vorher.
+# Der Service "migrate" nutzt dieses Image und führt sie vor dem Start aus.
+COPY alembic.ini .
+COPY alembic ./alembic
+
 # Dann der eigentliche Code
 COPY app ./app
 

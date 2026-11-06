@@ -1,5 +1,5 @@
 # Wasserraketen-Simulation: Services
-# Datenbank (PostgreSQL), Backend (FastAPI), Frontend (Nginx)
+# Datenbank (PostgreSQL), Migration (Alembic), Backend (FastAPI), Frontend (Nginx)
 
 services:
   db:
@@ -16,6 +16,20 @@ services:
       timeout: 5s
       retries: 10
 
+  # Bringt die Tabellen auf den neuesten Stand (alembic upgrade head) und
+  # beendet sich dann. Ist die Datenbank schon aktuell, ändert sich nichts.
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+
   backend:
     build: ./backend
     environment:
@@ -28,6 +42,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # Startet erst, wenn die Migration fehlerfrei beendet ist (Exitcode 0)
+      migrate:
+        condition: service_completed_successfully
 
   frontend:
     image: nginx:1.27-alpine
