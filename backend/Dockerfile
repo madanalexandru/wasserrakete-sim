@@ -1,6 +1,8 @@
 # Backend-Image: Python + FastAPI + uvicorn
 # Grundlage: Minimal-Dockerfile aus "Full Stack Handwerk", S. 54
-FROM python:3.12-slim
+# Tag zum Lesen, Digest (@sha256) legt das Image bitgenau fest. Der Digest
+# gilt für alle Plattformen (Image-Index, u. a. linux/amd64 und linux/arm64).
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
 
 WORKDIR /app
 
