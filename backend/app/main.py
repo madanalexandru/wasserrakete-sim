@@ -66,6 +66,21 @@ Serie abrufen (GET /api/series/{id}):
 - Liefert die gespeicherte Serie ohne Flugliste; die Flüge kommen über den
   CSV-Export. Unbekannte ID -> 404, kein Sicherheitsnetz.
 
+Flugkurve abrufen (GET /api/flights/{id}/trajectory):
+- Die Flugkurve wird nicht gespeichert. Der Endpunkt rechnet den Flug aus
+  der gespeicherten Konfiguration neu und dünnt die Kurve aus (höchstens
+  MAX_POINTS Punkte, app/trajectory.py). Gespeichert wird nichts.
+- Wurde der Flug mit einer anderen Modellversion gerechnet als der
+  aktuellen -> 409: Die damalige Kurve ist mit dem heutigen Modell nicht
+  reproduzierbar, und eine neu gerechnete Kurve passte nicht zum
+  gespeicherten Ergebnis.
+- Konsistenzprüfung: Das neu gerechnete Apogäum muss exakt dem
+  gespeicherten entsprechen (die Rechnung ist deterministisch), sonst 500.
+  Damit endet die Kurve garantiert beim gespeicherten Apogäum.
+- Kein Sicherheitsnetz: Der Flug war beim Speichern rechenbar; ein Fehler
+  beim Neurechnen liegt am Server, nicht an der Anfrage -> 500.
+- Unbekannte ID -> 404 wie beim Abruf des Flugs.
+
 CSV-Export (GET /api/series/{id}/flights.csv):
 - Alle Flüge der Serie als CSV, eine Zeile pro Flug, Spalten wie FlightRead
   (Format siehe app/export.py). Sortiert nach dem variierten Parameter,
@@ -94,12 +109,13 @@ from app.physics.simulation import MODEL_VERSION, RocketConfig, simulate_flight
 from app.physics.stability import stability_values
 from app.schemas import (
     INVERSE_PARAM, FlightRead, RocketCreate, RocketRead, SeriesCreate, SeriesRead,
-    SeriesStepError, StabilityRead,
+    SeriesStepError, StabilityRead, TrajectoryRead,
 )
 from app.search.binary_search import BinarySearch
 from app.search.exponential_search import ExponentialSearch
 from app.search.interpolation_search import InterpolationSearch
 from app.search.searchable import Searchable
+from app.trajectory import thin_trajectory
 
 # DEBUG kommt aus der .env (über docker-compose.yml).
 # Nur bei DEBUG=true ist die API-Dokumentation unter /api/docs sichtbar.
@@ -197,6 +213,30 @@ def read_flight(flight_id: int, session: Session = Depends(get_session)):
     if flight is None:
         raise HTTPException(status_code=404, detail="Flug nicht gefunden")
     return flight  # gespeicherter Kassenbon, nichts neu gerechnet
+
+
+@app.get("/api/flights/{flight_id}/trajectory", response_model=TrajectoryRead)
+def read_trajectory(flight_id: int, session: Session = Depends(get_session)):
+    """Rechnet die Flugkurve eines gespeicherten Flugs neu, 404 bei unbekannter ID."""
+    flight = session.get(Flight, flight_id)
+    if flight is None:
+        raise HTTPException(status_code=404, detail="Flug nicht gefunden")
+    if flight.model_version != MODEL_VERSION:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Flug mit Modellversion {flight.model_version} gerechnet, aktuell "
+                f"{MODEL_VERSION}; die Flugkurve ist nicht reproduzierbar"
+            ),
+        )
+    result = simulate_flight(flight.to_config())  # kein Netz, siehe oben
+    if result.apogee != flight.apogee:
+        raise HTTPException(
+            status_code=500,
+            detail="Neu gerechnete Flugkurve passt nicht zum gespeicherten Apogäum",
+        )
+    t, h, v = (list(column) for column in zip(*thin_trajectory(result.trajectory)))
+    return TrajectoryRead(flight_id=flight.id, model_version=flight.model_version, t=t, h=h, v=v)
 
 
 def step_error(step: int, msg: str, error_type: str) -> HTTPException:

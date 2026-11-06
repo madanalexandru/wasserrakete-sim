@@ -50,6 +50,12 @@ Experimentserien:
   SeriesStepError (ein ValueError) mit Schrittnummer und Wert.
 - SeriesRead enthält die Spalten der Tabelle series in ihrer Reihenfolge,
   ohne Flugliste. Die Flüge einer Serie kommen über den CSV-Export.
+
+Flugkurve:
+- TrajectoryRead ist die ausgedünnte Flugkurve eines gespeicherten Flugs,
+  aus dem Kassenbon neu gerechnet (nicht gespeichert). Drei gleich lange
+  Listen t, h, v statt einer Liste von Punkten: Die Feldnamen stehen so nur
+  einmal in der Antwort statt in jedem Punkt.
 """
 
 from dataclasses import asdict
@@ -354,3 +360,13 @@ class SeriesRead(BaseModel):
     n_steps: int
     searcher: str | None  # nur im inversen Modus
     duration_s: float | None = Field(description="Rechnen und Schreiben aller Flüge in s")
+
+
+class TrajectoryRead(BaseModel):
+    """Antwort: ausgedünnte Flugkurve eines gespeicherten Flugs (SI)."""
+
+    flight_id: int
+    model_version: str
+    t: list[float] = Field(description="Zeit in s")
+    h: list[float] = Field(description="Höhe in m")
+    v: list[float] = Field(description="Geschwindigkeit in m/s")
