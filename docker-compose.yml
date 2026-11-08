@@ -60,5 +60,45 @@ services:
     depends_on:
       - backend
 
+  # --- Nur für Tests (Profil "test"): docker compose --profile test run --rm test
+  # Ein normales "docker compose up" startet diese beiden Services nicht.
+
+  # Eigene Testdatenbank, getrennt von den echten Daten. Daten nur im
+  # Arbeitsspeicher (tmpfs): weg, sobald der Container stoppt. Kein Port nach
+  # außen, deshalb feste Zugangsdaten ohne Geheimnis.
+  db-test:
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: wasserrakete_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  # Alle Tests (SQLite und PostgreSQL) im gleichen Python-Image wie das Backend.
+  test:
+    image: python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
+    profiles: ["test"]
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      INTEGRATION_DB: "1"
+      POSTGRES_DB: wasserrakete_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_HOST: db-test
+    command: ["sh", "-c", "pip install -q -r requirements-dev.txt && python -W error -m pytest -q -p no:cacheprovider"]
+    depends_on:
+      db-test:
+        condition: service_healthy
+
 volumes:
   db-data:
