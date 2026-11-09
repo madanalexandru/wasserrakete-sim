@@ -100,5 +100,20 @@ services:
       db-test:
         condition: service_healthy
 
+  # --- Nur für Experimente (Profil "experiment"), z. B.:
+  # docker compose --profile experiment run --rm experiment python cw_sensitivitaet/run.py
+  # Spricht die API über Nginx an wie der Browser; Ergebnisse landen in ./experiments.
+  experiment:
+    image: python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
+    profiles: ["experiment"]
+    working_dir: /experiments
+    volumes:
+      - ./experiments:/experiments
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      API_BASE: http://frontend/api
+    depends_on:
+      - frontend
+
 volumes:
   db-data:
