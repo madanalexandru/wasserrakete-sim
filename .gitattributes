@@ -1,2 +1,2 @@
-   # CSV-Exporte der Experimente byteweise speichern (CRLF wie von der API geliefert)
-   experiments/**/data/*.csv -text
+# CSV-Exporte der Experimente byteweise speichern (CRLF wie von der API geliefert)
+experiments/**/data/*.csv -text
