@@ -91,3 +91,46 @@ CSV-Export unverändert unter experiments/cw_sensitivitaet/data/.
 Das Skript gibt keine Apogäen aus. Ein zweites Skript berechnet
 Abschnitt 4 und erzeugt Abbildung und Tabelle aus den CSV-Dateien.
 Die Werte werden erst angesehen, wenn diese Notiz committet ist.
+
+## 7. Nachtrag vom 09.11.2026 (vor Ansicht der Werte)
+
+Stand: Messdaten committet (f289bec). Die Apogäen hat noch niemand
+angesehen; alle Prüfungen gaben nur Ja/Nein und Zählungen aus.
+Die Abschnitte 1 bis 6 bleiben unverändert stehen.
+
+Quelle beschafft und im Original geprüft: Barrio-Perotti, R.,
+Blanco-Marigorta, E., Argüelles-Díaz, K. & Fernández-Oro, J.
+(2009), Eur. J. Phys. 30, 1039–1048, doi:10.1088/0143-0807/30/5/012.
+In Abschnitt 3 war der Erstautor verkürzt als "Perotti" genannt.
+Damit gilt Regel A; Fallback B entfällt.
+
+Befund: Die Quelle nennt c_w = 0,345 ± 0,004 für eine einzige
+2-l-Rakete (D = 106,0 mm; S. 1045, S. 1047 Gl. 6), gültig für
+1e3 < Re < 2e5 (S. 1047). ± 0,004 ist die Messgenauigkeit dieses
+Versuchs (S. 1047, Tab. 1), nicht die Streuung zwischen Raketen.
+Unsere Raketen R0 bis R9 sind nicht gemessen; für die KPI-Schwelle
+zählt daher die Unsicherheit eines ungemessenen c_w.
+
+Änderung: Ausgewertet werden zwei Bänder, beide mit c_ref = 0,345.
+- Messband (Regel A wörtlich): [0,341; 0,349]. Wird berichtet
+  (Discussion), begründet aber keine Schwelle.
+- Formband: [0,30; 0,47]. 0,30 = torpedoförmiger Körper
+  (Timmerman & van der Weele 1999, S. 544); 0,47 = Kugel
+  (Barrio-Perotti et al. 2009, S. 1045, nach White 1999).
+Abschnitt 4 (Delta_cw je Band, eps, Luftdichte-Effekt) wird bei
+c_ref = 0,345 ausgewertet; c_ref ± 0,01 und Bandgrenzen zwischen
+Rasterpunkten werden linear interpoliert.
+
+Regel für die KPI-Schwelle (Vergleich mit dem Referenztool):
+S = (h(0,30) - h(0,345)) / h(0,345) je Rakete, also die
+Apogäumsänderung, wenn c_w vom Referenzwert auf die nähere Grenze
+des Formbands fällt. Der KPI gilt für eine Rakete als erfüllt, wenn
+|h_Modell - h_Tool| / h_Tool <= S, beide gerechnet mit c_w = 0,345.
+Berichtet wird die Zahl der erfüllten Raketen von 10 und je Rakete
+die Abweichung. Die Regel für Luftdichte und Flaschenform wird
+gesondert festgelegt, ebenfalls vor Ansicht der Werte.
+
+Zusätzlich auszuwerten: maximale Reynoldszahl je Rakete bei
+c_ref, Re = v_burnout * d_body / nu mit nu = 1,453e-5 m²/s
+(Barrio-Perotti et al. 2009, S. 1044). Liegt sie über 2e5, ist das
+eine Limitation (c_w-Wert außerhalb seines Gültigkeitsbereichs).
