@@ -134,3 +134,31 @@ Zusätzlich auszuwerten: maximale Reynoldszahl je Rakete bei
 c_ref, Re = v_burnout * d_body / nu mit nu = 1,453e-5 m²/s
 (Barrio-Perotti et al. 2009, S. 1044). Liegt sie über 2e5, ist das
 eine Limitation (c_w-Wert außerhalb seines Gültigkeitsbereichs).
+
+## 8. Nachtrag vom 09.11.2026: Luftdichte und Flaschenform (vor Ansicht der Werte)
+
+Stand: Die Apogäen hat weiterhin niemand angesehen.
+
+Luftdichte (Angleichung über c_w): Das Referenztool rechnet bei
+20 °C (nur per Schieberegler eingestellt) mit rho_Tool = 1,2039
+kg/m³ (Rückrechnung aus Burnout-Werten, siehe projektlog; kein
+Herstellerwert). Im Modell wirkt rho nur über
+k = 0,5 * rho * c_w * A. Für den Vergleich rechnet das Modell daher
+mit c_w' = 0,345 * 1,2039 / 1,225 (ca. 0,33906; im Skript als
+Formel, nicht gerundet). Das ist exakt das Modell mit rho_Tool. Das
+Tool erhält c_w = 0,345. Im KPI aus Abschnitt 7 gilt damit: h_Modell
+bei c_w', h_Tool bei c_w = 0,345. Temperatur in beiden 20 °C (temp0 =
+293,15 K). Die Schwelle S aus Abschnitt 7 bleibt unverändert. Der
+Luftdichte-Effekt aus Abschnitt 4 wird weiterhin berichtet; er zeigt
+die Größe dieser Angleichung.
+
+Flaschenform (nicht angleichbar, das Modell kennt keine Form): Der
+KPI-Vergleich nutzt die Standardform des Tools (h_Std). Zusätzlich
+wird jede Rakete im Tool fast zylindrisch gerechnet (A/B/C =
+0/0/50, h_zyl). Delta_Form = (h_zyl - h_Std) / h_Std je Rakete.
+|Delta_Form| < S: Limitation. |Delta_Form| >= S: Kandidat für eine
+begründete Modelländerung (Results-Methodik-Schleife oder Future
+Work).
+
+Weitere Angleichungen im Tool unverändert wie im Funktionstest:
+Startrohr Länge 0, Wirkungsgrad 1.
