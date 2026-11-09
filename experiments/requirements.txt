@@ -1,0 +1,17 @@
+# Nur für die Auswertung der Experimente (Abbildungen), nicht im Backend-Image.
+# Sperrliste: alle Pakete exakt fixiert, Datumsgrenze wie backend/requirements.txt.
+# Erzeugt mit pip 26.2.1 und Python 3.12:
+#   pip install --uploaded-prior-to 2026-10-19T00:00:00Z matplotlib
+#   pip freeze
+# Direkt genutzt: matplotlib. Rest = Abhängigkeiten.
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.67.0
+kiwisolver==1.5.1
+matplotlib==3.11.2
+numpy==2.5.4
+packaging==26.3
+pillow==13.0.0
+pyparsing==3.3.3
+python-dateutil==2.9.0.post0
+six==1.17.0
