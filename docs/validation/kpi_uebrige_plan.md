@@ -84,9 +84,8 @@ Begründung: Die Schwelle prüft die bisher ungemessenen Annahmen
 Schwelle ist systembezogen.
 Verfehlt (504 oder Zeit >= 300 s): unverändert berichten; Grenzen
 begründet senken; erneut messen (Results-Methodik-Schleife).
-Zu notieren: CPU, RAM, Windows-Build, Docker Desktop, WSL-2-Speicher
-[VOM STUDENTEN EINTRAGEN]; während der Messung keine anderen
-rechenintensiven Programme.
+Messumgebung und Messablauf: siehe Nachtrag 1. Während der Messung
+keine anderen rechenintensiven Programme.
 
 Voraussetzung für Abschnitt 3 (aus denselben Serien, nur Ja/Nein):
 Monotonie je Rakete. Geprüft wird: keine Abnahme zwischen Nachbarn;
@@ -160,3 +159,32 @@ deren Abbruchgrund.
    Ereignissuche.
 4. Parameterstudie mit eigener Vorab-Notiz, einschließlich KPI
    "Konfigurationsbandbreite" (Teilfrage 2).
+
+   
+## Nachtrag 1 (10.11.2026, vor der Messung): Umgebung und Ablauf
+
+Messumgebung (abgefragt am 10.11.2026 per PowerShell):
+- CPU: Intel(R) Core(TM) Ultra 7 268V, 8 Kerne, 8 logische
+  Prozessoren.
+- RAM: 31,5 GB (Win32_ComputerSystem, gerundet).
+- Windows: Version 10.0.26200.9711.
+- Docker Desktop 4.93.0 (240920), Engine 29.8.1.
+- Docker-VM: 8 CPUs, 16516796416 Bytes (ca. 15,4 GiB).
+- Messung im Netzbetrieb, ohne andere rechenintensive Programme.
+  Abweichungen werden im Messprotokoll vermerkt.
+
+Messablauf Durchsatz vorwärts (Entscheidungen 98a, 99a, 100b):
+- Eigenes Skript experiments/durchsatz/run.py.
+- Aufwärmlauf: eine Serie an R0 mit 10 Schritten (1 kPa bis
+  1000 kPa), nicht ausgewertet, kein Export im Repo.
+- Danach 3 Durchgänge, je Durchgang feste Reihenfolge R0 bis R9.
+  Jeder Durchgang legt neue Raketen an, damit jede Serie den
+  vollständigen Ablauf durchläuft (Rakete, Serie, CSV).
+- Gezählt werden nur diese Aufrufe. Die Bereitschaftsprüfung
+  (/api/health) vor dem Start zählt nicht.
+- Wartezeit des Clients 330 s (länger als Nginx mit 300 s), damit
+  ein 504 als Status erfasst wird.
+- Gespeichert: eine Zeiten-CSV (eine Zeile je Serie) und je Rakete
+  der CSV-Export des ersten gewerteten Durchgangs.
+- Ja/Nein-Prüfung: Die Ergebnisspalten aller drei Durchgänge sind je
+  Rakete identisch. Sonst Abbruch, Befund berichten.
