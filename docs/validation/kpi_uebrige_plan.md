@@ -222,3 +222,44 @@ jeder positiven Zielhöhe; die Reihenfolge dieser Werte untereinander
 
 Grenze: Geprüft wird nur auf dem Raster der Serie (1 kPa). Zwischen
 den Rasterpunkten bleibt Monotonie eine Annahme (Limitation).
+
+
+## Nachtrag 3 (11.11.2026, vor der Messung): Ablauf Algorithmenvergleich
+
+Stand: Durchsatz vorwärts ausgewertet (Commit 355bc1c). M2 für alle
+10 Raketen erfüllt, alle 10 im Vergleich (durchsatz/results/
+monotonie.csv). Noch keine inverse Serie gerechnet.
+
+Messablauf (Entscheidungen 104 bis 108):
+- Eigenes Skript experiments/algorithmen/run.py; Hilfsfunktionen aus
+  durchsatz/run.py kopiert.
+- Raketen R0 bis R9 wie in durchsatz/run.py (c_w = 0,345), nur mit
+  im_vergleich = ja in durchsatz/results/monotonie.csv.
+- h(P_MAX) je Rakete: Apogäum der letzten Zeile des Vorwärts-Exports
+  (p0_gauge = 1000 kPa), vom Skript gelesen, nicht ausgegeben.
+- Zielhöhen: param_start = 0,05 * h(P_MAX), param_stop =
+  0,95 * h(P_MAX), n_steps = 40; die Werte rechnet die API.
+- Aufwärmlauf: R0, binary, 2 Zielhöhen, nicht ausgewertet, kein
+  Export im Repo.
+- Reihenfolge: R0 bis R9, je Rakete binary, exponential,
+  interpolation. Ein Durchgang (Abschnitt 3: eine Serie je Rakete
+  und Verfahren).
+- Jede Serie legt eine neue Rakete an (Rakete, Serie, CSV).
+- Wartezeit des Clients 330 s (länger als Nginx mit 300 s).
+
+Fehler:
+- 422 einer Serie: Zeile mit Status und Fehlertext in zeiten.csv,
+  kein Export, weiter mit der nächsten Serie. Zählt für K1 als nicht
+  konvergiert. Der Fehlertext wird nicht ausgegeben.
+- 504 oder Client-Timeout: Zeile speichern, Messung beenden (wie
+  Durchsatz).
+- Andere Fehler: Abbruch ohne Schreiben.
+
+Gespeichert in experiments/algorithmen/data/: zeiten.csv (eine Zeile
+je Serie) und alle Exporte unverändert. Strukturprüfung je Export:
+40 Zeilen, richtige series_id und searcher, target_apogee gleich den
+geplanten Werten (gleiche Rechnung wie die API).
+
+Schwellen unverändert: K1, K2, H1 bis H3 (Abschnitt 3); jede inverse
+Serie t_Client < 300 s, Aufwand <= 3 Aufrufe (Abschnitt 2).
+Messumgebung wie Nachtrag 1; Abweichungen im Messprotokoll.
