@@ -292,3 +292,62 @@ Zählweise (beschreibend, Vorhersagen sind keine KPIs):
 
 Abbildung (beschreibend): search_evaluations über p* je Verfahren,
 alle Raketen, mit der H2-Stufenlinie und der Linie 22.
+
+
+## Nachtrag 5 (11.11.2026, vor der Messung): Ablauf analytische Lösung und Wirkung der Ereignissuche
+
+Stand: Repo 2d06003. Für Abschnitt 1 und die Wirkung der
+Ereignissuche (Abschnitt 3) ist noch kein Flug gerechnet und kein
+Wert angesehen. Schwellen und Klassifikation bleiben unverändert.
+
+Analytische Lösung (Abschnitt 1, Entscheidung 114):
+- Eigenes Skript experiments/analytisch/run.py über die API (Service
+  "experiment"). Raketen R0 bis R9 aus durchsatz/run.py kopiert; ein
+  Test prüft die Gleichheit.
+- Je Rakete zwei neue Raketen: F1 mit c_w = 0, F2 mit c_w = 0,345;
+  sonst Nennkonfiguration, temp0 nach Standard der API. Je Rakete ein
+  Einzelflug. Reihenfolge R0 bis R9, je Rakete F1, dann F2. Kein
+  Aufwärmlauf (Zeit ist hier keine Kennzahl).
+- Die JSON-Antworten werden unverändert in data/ gespeichert.
+- Die Formeln nutzen dieselben Konstanten wie das Modell (g, Dichte
+  von Luft und Wasser). F2 prüft damit die Numerik, nicht das
+  Widerstandsmodell.
+- 422 eines Flugs: Zeile mit Status, Rakete "nicht auswertbar",
+  weiter. Andere Fehler: Abbruch ohne Schreiben.
+- Ausgaben (evaluate.py, mit Tests auf erfundenen Daten):
+  results/analytisch.csv und analytisch.md. S aus kennzahlen.csv in
+  voller Genauigkeit.
+
+Wirkung der Ereignissuche (Abschnitt 3, Entscheidungen 115 bis 117):
+- Eigener Ordner experiments/ereignissuche/. Nachbau von
+  simulate_flight, der searcher an Wasserphase und Freiflug
+  weitergibt und deren Auswertungen zurückgibt. Code in backend/app
+  bleibt unverändert.
+- Ausführung als direkter Physikaufruf in einem Wegwerf-Container
+  (python-Digest, backend/ und experiments/ eingebunden).
+- "Schrittende" wird umgesetzt als Ersatz-Suchverfahren, das die
+  Schnittstelle Searchable erfüllt und immer x = hi (= dt) liefert,
+  mit 0 Auswertungen. Damit ändert sich nur der Zeitpunkt des
+  Ereignisses; der übrige Code ist identisch. Es ist eine Variante
+  ohne Ereignissuche, nicht der historische Code.
+- Varianten je Rakete (R0 bis R9, c_w = 0,345, Nennkonfiguration):
+  V0 binär in beiden Phasen; V1 Interpolation (Illinois) in beiden
+  Phasen; V2 Schrittende in beiden Phasen; V3 nur Wasser-Ende am
+  Schrittende (Freiflug binär); V4 nur Apogäum am Schrittende
+  (Wasserphase binär).
+- Voraussetzung: V0 je Rakete bitgleich zu simulate_flight (alle
+  Ergebnisfelder einschließlich Flugkurve). Bei einem Nein werden
+  für diese Rakete keine Unterschiede ausgewertet; das Nein wird
+  berichtet.
+- Kennzahl (wie Abschnitt 3): Delta_E aus V2 gegenüber V0,
+  Klassifikation an S/100 unverändert.
+- Beschreibend, kein KPI: Delta_W (V3) und Delta_A (V4) gegenüber V0,
+  eingeordnet mit derselben Regel; Auswertungen je Phase für V0 und
+  V1.
+- run.py schreibt die Rohwerte nach data/; evaluate.py (mit Tests)
+  schreibt results/ereignissuche.csv und ereignissuche.md. Keine
+  Abbildung.
+
+Regeln wie Abschnitt 4: Skripte geben nur Ja/Nein und Dateinamen
+aus; erst nach dem Commit der getesteten Auswertung werden Werte
+angesehen.
