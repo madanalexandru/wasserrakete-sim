@@ -263,3 +263,32 @@ geplanten Werten (gleiche Rechnung wie die API).
 Schwellen unverändert: K1, K2, H1 bis H3 (Abschnitt 3); jede inverse
 Serie t_Client < 300 s, Aufwand <= 3 Aufrufe (Abschnitt 2).
 Messumgebung wie Nachtrag 1; Abweichungen im Messprotokoll.
+
+
+## Nachtrag 4 (11.11.2026, nach der inversen Messung, vor jeder Auswertung): Grenzfälle H2, Zählweise
+
+Stand: Messung invers committet (Commit 86f776e). Aus der Konsole
+bekannt: alle 30 Serien mit Status 201. Keine Werte angesehen.
+
+Präzisierung zu Abschnitt 3:
+- p* = gefundener Startdruck der Suche (Spalte p0_gauge, Überdruck).
+- "Grenze" in H2 = jede Stelle, an der die Exponentialsuche vor der
+  Halbierung auswertet (P_MIN + step0 * 2^k: 51, 101, 201, 401,
+  801 kPa) sowie P_MIN = 1 kPa und P_MAX = 1000 kPa. Grund: Dort
+  entscheidet die Toleranz von 1 Pa, auf welcher Seite p* liegt; der
+  Suchweg ist nicht eindeutig vorhersagbar.
+- Suchen mit |p* - Grenze| < 1 Pa werden gezählt und getrennt
+  berichtet, aber nicht für H2 gewertet.
+- Die Tabelle in Abschnitt 3 bleibt unverändert. Vor der Auswertung
+  wird sie als Test gegen die echte ExponentialSearch mit f(p) = p
+  geprüft. Weicht der Test ab, wird das berichtet; die Vorhersage
+  bleibt wie festgelegt.
+
+Zählweise (beschreibend, Vorhersagen sind keine KPIs):
+- H1: Anzahl binärer Suchen mit 22 Auswertungen von allen binären.
+- H2: Anzahl gewerteter exponentieller Suchen, die der Tabelle
+  entsprechen, von allen gewerteten.
+- H3: Anzahl Raketen mit Median < 22 von allen Raketen.
+
+Abbildung (beschreibend): search_evaluations über p* je Verfahren,
+alle Raketen, mit der H2-Stufenlinie und der Linie 22.
