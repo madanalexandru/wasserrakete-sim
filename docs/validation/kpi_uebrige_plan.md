@@ -188,3 +188,37 @@ Messablauf Durchsatz vorwärts (Entscheidungen 98a, 99a, 100b):
   der CSV-Export des ersten gewerteten Durchgangs.
 - Ja/Nein-Prüfung: Die Ergebnisspalten aller drei Durchgänge sind je
   Rakete identisch. Sonst Abbruch, Befund berichten.
+
+
+## Nachtrag 2 (11.11.2026, nach der Messung, vor jeder Auswertung): Monotonie unterhalb des Abhebens
+
+Stand: Durchsatz vorwärts gemessen (Commit 45d298d). Weder Zeiten
+noch Apogäen angesehen; kein Auswerte-Skript gelaufen.
+
+Anlass (vorab bekannt, Sandbox-Sonde vom 05.11., nicht im Repo):
+Unterhalb des Abhebedrucks kann das Modell ein Apogäum knapp unter
+null liefern (Beispielrakete: 1 kPa 0,0 m; 10 kPa -3e-8 m), weil
+kein Boden modelliert ist. Nach Abschnitt 2 wäre das eine Abnahme
+zwischen Nachbarn, obwohl die Rakete dort nicht abhebt. Dieser Punkt
+wurde beim Erstellen der Notiz übersehen.
+
+Prüfung (unverändert, je Rakete Ja/Nein):
+- M1: keine Abnahme zwischen Nachbarn.
+- M2: streng steigend ab dem ersten Apogäum > 0. Gibt es kein
+  Apogäum > 0, gilt M2 = Nein.
+
+Geänderte Folge für Abschnitt 3:
+- Die Rakete wird nur bei M2 = Nein aus Abschnitt 3 genommen.
+- Bei M2 = Ja liegt jede Verletzung von M1 zwischen zwei Apogäen
+  <= 0 (vor dem ersten Apogäum > 0 sind alle Werte <= 0, danach gibt
+  es keine Abnahme). Diese Abnahmen werden je Rakete mit Anzahl
+  berichtet, führen aber nicht zum Ausschluss.
+
+Begründung: Alle Zielhöhen in Abschnitt 3 sind positiv (5 % bis
+95 % von h(P_MAX)). Die Suchverfahren werten nur aus, ob ein Apogäum
+unter oder über der Zielhöhe liegt. Jedes Apogäum <= 0 liegt unter
+jeder positiven Zielhöhe; die Reihenfolge dieser Werte untereinander
+ändert das Ergebnis der Suche nicht.
+
+Grenze: Geprüft wird nur auf dem Raster der Serie (1 kPa). Zwischen
+den Rasterpunkten bleibt Monotonie eine Annahme (Limitation).
