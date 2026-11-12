@@ -349,5 +349,29 @@ class Main(unittest.TestCase):
         self.assertEqual(first, {n: (self.out / n).read_bytes() for n in evaluate.OUTPUTS})
 
 
+class Plot(unittest.TestCase):
+    """Achsenmarken der Abbildung Suchaufwand (erfundene Daten)."""
+
+    def groups(self, low):
+        p_stars = [6e3 + i * 24e3 + 0.37 for i in range(run.N_TARGETS)]
+        evals = {
+            "binary": [22] * run.N_TARGETS,
+            "exponential": [evaluate.h2_expected(p) for p in p_stars],
+            "interpolation": [low + i % 7 for i in range(run.N_TARGETS)],
+        }
+        return [{"searcher": s,
+                 "items": [{"p_star": p, "evals": n} for p, n in zip(p_stars, evals[s])]}
+                for s in run.SEARCHERS]
+
+    def test_y_ticks_are_integers(self):
+        # low = 6 entspricht dem Wertebereich 6 bis 25, bei dem die
+        # Standardmarken in Schritten von 2,5 liegen.
+        for low in (2, 6, 10):
+            with self.subTest(low=low), tempfile.TemporaryDirectory() as tmp:
+                ticks = evaluate.plot(self.groups(low), Path(tmp))
+                self.assertGreaterEqual(len(ticks), 3)
+                self.assertTrue(all(v == int(v) for v in ticks), ticks)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -282,11 +282,15 @@ def write_md(groups, s, path):
 
 
 def plot(groups, out_dir):
-    """Auswertungen über p* je Verfahren, mit H2-Stufen und der Linie H1."""
+    """Auswertungen über p* je Verfahren, mit H2-Stufen und der Linie H1.
+
+    Gibt die sichtbaren Marken der y-Achse zurück. Auswertungen sind ganze
+    Zahlen, deshalb zeigt die y-Achse nur ganzzahlige Marken.
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.ticker import FuncFormatter
+    from matplotlib.ticker import FuncFormatter, MaxNLocator
 
     matplotlib.rcParams.update({"svg.hashsalt": "algorithmen", "font.size": 9})
     comma = FuncFormatter(lambda v, _pos: f"{v:g}".replace(".", ",").replace("-", "−"))
@@ -315,13 +319,17 @@ def plot(groups, out_dir):
     ax.set_ylabel("Auswertungen (Flüge) je Suche")
     ax.set_xlim(0, 1000)
     ax.xaxis.set_major_formatter(comma)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     ax.yaxis.set_major_formatter(comma)
     ax.grid(True, linewidth=0.3, color="0.8")
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=7, frameon=False)
     fig.tight_layout()
     fig.savefig(out_dir / "abbildung_suchaufwand.png", dpi=300, metadata={"Software": None})
     fig.savefig(out_dir / "abbildung_suchaufwand.svg", metadata={"Date": None})
+    y_lo, y_hi = ax.get_ylim()
+    y_ticks = [float(v) for v in ax.get_yticks() if y_lo <= v <= y_hi]
     plt.close(fig)
+    return y_ticks
 
 
 OUTPUTS = ["suchen.csv", "algorithmen.csv", "algorithmen.md",
