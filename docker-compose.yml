@@ -4,14 +4,21 @@
 # Images mit Tag und Digest: Der Tag dient nur zum Lesen, der Digest
 # (@sha256) legt das Image bitgenau fest, auch wenn der Tag später auf ein
 # neueres Image zeigt. Aktualisieren nur bewusst und mit erneuten Tests.
+#
+# Zugangsdaten: Werte aus .env, falls vorhanden. Fehlt .env (z. B. frischer
+# Klon), gelten die Standardwerte hinter ":-". So startet ein frischer Klon
+# mit einem Befehl. Das Standard-Passwort ist kein Geheimnis: Es gilt nur
+# lokal, die Datenbank hat keinen Port nach außen (nur das Frontend: 80).
+# Eigene Werte: Copy-Item .env.example .env und Werte ersetzen. PostgreSQL
+# übernimmt das Passwort nur beim ersten Start mit leerem Volume.
 
 services:
   db:
     image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-wasserrakete}
+      POSTGRES_USER: ${POSTGRES_USER:-rakete}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nur-lokal-kein-geheimnis}
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -26,9 +33,9 @@ services:
     build: ./backend
     command: ["alembic", "upgrade", "head"]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-wasserrakete}
+      POSTGRES_USER: ${POSTGRES_USER:-rakete}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nur-lokal-kein-geheimnis}
       POSTGRES_HOST: db
     depends_on:
       db:
@@ -37,11 +44,13 @@ services:
   backend:
     build: ./backend
     environment:
-      DEBUG: ${DEBUG}
-      # Zugangsdaten aus .env; app/db.py baut daraus die Verbindungsadresse
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Standard false wie in app/main.py: /api/docs nur mit DEBUG=true in .env
+      DEBUG: ${DEBUG:-false}
+      # Zugangsdaten aus .env oder Standardwerten (siehe oben); app/db.py
+      # baut daraus die Verbindungsadresse
+      POSTGRES_DB: ${POSTGRES_DB:-wasserrakete}
+      POSTGRES_USER: ${POSTGRES_USER:-rakete}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nur-lokal-kein-geheimnis}
       POSTGRES_HOST: db
     depends_on:
       db:
