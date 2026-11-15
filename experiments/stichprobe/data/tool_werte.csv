@@ -1,0 +1,12 @@
+lauf,label,form,c_w,apogee_m,t_apogee_s,impulse_ns,burn_time_s,burnout_t_s,burnout_h_m,burnout_v_mps,bemerkung
+1,A0,std,0.50,,,,,,,,
+2,E1,std,0.33,,,,,,,,
+3,E1,std,0.36,,,,,,,,
+4,E2,std,0.33,,,,,,,,
+5,E2,std,0.36,,,,,,,,
+6,E3,std,0.33,,,,,,,,
+7,E3,std,0.36,,,,,,,,
+8,E4,std,0.33,,,,,,,,
+9,E4,std,0.36,,,,,,,,
+10,K-E1,std,0.33,,,,,,,,
+11,K-E1,std,0.36,,,,,,,,
