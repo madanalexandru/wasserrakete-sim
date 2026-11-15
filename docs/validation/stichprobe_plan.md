@@ -161,3 +161,38 @@ wird untersucht (Modell, Tool-Eingabe, Tool-Ausreißer).
 5. Auswertung mit Tests committen, Werte erst danach ansehen.
 
 Änderungen an dieser Notiz nur als datierter Nachtrag.
+
+## 9. Nachtrag vom 15.11.2026: Ergebnis und Ursachenprüfung (nach Ansicht der Werte)
+
+Stand: Ergebnis committet (ea7c5b4). Abschnitte 1 bis 8 bleiben
+unverändert.
+
+Ergebnis, unverändert berichtet: KPI erfüllt bei 3 von 4
+Eckraketen; E2 verfehlt (Werte in results/stichprobe.md).
+
+Ursachenprüfung nach Abschnitt 7:
+- Tool-Eingabe: alle sechs Felder von E2 auf den Screenshots wie in
+  Abschnitt 1.
+- Tool-Ausreißer: Paar gültig (gleicher Gesamtimpuls), Apogäen
+  der beiden Läufe glatt; keine Anzeichen.
+- Modell: Zuordnung der Abweichung zur Flugphase über die
+  Brennschlusswerte (Ende Luftstoß), beschreibend für alle
+  Raketen mit Tool-Wert (R0 bis R9, E1 bis E4):
+  dv_bo = (v_bo,Modell - v_bo,Tool) / v_bo,Tool;
+  dh_bo = h_bo,Modell - h_bo,Tool;
+  d_coast = relative Differenz von h_bo + v_bo² / (2 g) (Steighöhe
+  ohne Luftwiderstand, nur zur Zuordnung); Tool-Werte als Mittel des
+  für h_Tool verwendeten Paars. Keine Schwelle, kein KPI. Skript
+  stichprobe/ursache.py, Ausgabe results/ursache.csv und .md.
+
+Diese Größen wurden nach Ansicht der Ergebnisse festgelegt; die KI
+hat sie vor diesem Nachtrag in einer Nebenrechnung (nicht im Repo)
+angesehen.
+
+Entscheidung nach Abschnitt 7: Die Ursache ist nicht eindeutig im
+Modell belegt. Die Abweichung entsteht in der Schubphase; ob das
+Modell oder das Referenztool dort näher an realen Flügen liegt, ist
+ohne Messung nicht entscheidbar. Daher keine Modelländerung vor der
+Abgabe; begründeter Vorschlag in Discussion und Future Work; die
+Abweichung von der Results-Methodik-Schleife wird offengelegt.
+S und die KPI-Regel bleiben unverändert.
