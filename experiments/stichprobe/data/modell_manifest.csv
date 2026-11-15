@@ -1,0 +1,5 @@
+label,scan_rocket_id,series_id,scan_file,flight_rocket_id,flight_id,flight_file
+E1,170,133,scan_E1_serie_133.csv,171,37308,modell_E1_flug_37308.json
+E2,172,134,scan_E2_serie_134.csv,173,37410,modell_E2_flug_37410.json
+E3,174,135,scan_E3_serie_135.csv,175,37512,modell_E3_flug_37512.json
+E4,176,136,scan_E4_serie_136.csv,177,37614,modell_E4_flug_37614.json
