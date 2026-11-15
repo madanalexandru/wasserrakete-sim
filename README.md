@@ -169,7 +169,7 @@ docker run --rm -v "${PWD}:/repo:ro" -w /repo node:24.22.0-alpine@sha256:44fce69
 **Experiment-Skripte** (ohne laufenden Stack):
 
 ```powershell
-docker compose --profile experiment run --rm --no-deps experiment sh -c 'pip install -q --root-user-action=ignore -r requirements.txt && for d in analytisch cw_sensitivitaet tool_vergleich parameterstudie durchsatz algorithmen uebersicht; do python -W error -m unittest discover -s $d || exit 1; done'
+docker compose --profile experiment run --rm --no-deps experiment sh -c 'pip install -q --root-user-action=ignore -r requirements.txt && for d in analytisch cw_sensitivitaet tool_vergleich parameterstudie durchsatz algorithmen uebersicht stichprobe; do python -W error -m unittest discover -s $d || exit 1; done'
 ```
 
 Die Ereignissuche rechnet direkt in der Physik und braucht dafür
@@ -195,6 +195,7 @@ nach `results/`) und Tests. Die Messpläne mit KPIs stehen in
 | `durchsatz` | große Vorwärtsserien, Zeiten, Monotonie | – |
 | `algorithmen` | inverse Serien je Suchverfahren | `abbildung_suchaufwand` |
 | `ereignissuche` | Wirkung der Ereignissuche (direkt in der Physik) | – |
+| `stichprobe` | Vier Eckraketen gegen das Referenztool, Ursachenprüfung je Flugphase | `abbildung_stichprobe` |
 | `uebersicht` | Übersicht System und Experiment-Workflow | `abbildung_uebersicht` |
 
 Abbildungen jeweils als PNG und SVG.
@@ -202,7 +203,7 @@ Abbildungen jeweils als PNG und SVG.
 **Ergebnisse und Abbildungen aus den committeten Rohdaten neu erzeugen:**
 
 ```powershell
-docker compose --profile experiment run --rm --no-deps experiment sh -c 'pip install -q --root-user-action=ignore -r requirements.txt && for d in analytisch cw_sensitivitaet tool_vergleich parameterstudie durchsatz algorithmen; do python $d/evaluate.py || exit 1; done && python uebersicht/zeichne.py'
+docker compose --profile experiment run --rm --no-deps experiment sh -c 'pip install -q --root-user-action=ignore -r requirements.txt && for d in analytisch cw_sensitivitaet tool_vergleich parameterstudie durchsatz algorithmen stichprobe; do python $d/evaluate.py || exit 1; done && python stichprobe/ursache.py && python uebersicht/zeichne.py'
 docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "${PWD}\experiments:/experiments" -w /experiments python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 python ereignissuche/evaluate.py
 git status
 ```
