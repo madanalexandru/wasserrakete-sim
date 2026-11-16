@@ -32,10 +32,10 @@ FLIGHT_DIRS = ("physics", "search")
 NOT_FLIGHT = {"barrowman.py", "stability.py"}  # nur Stabilität, kein Flug
 
 # Version -> Prüfsumme des Syntaxbaums. Wird nur ergänzt.
-# Bis Commit 73e639e wurde der Quelltext samt Kommentaren gehasht;
-# Version "1" hatte damals die Prüfsumme
+# Früher wurde der Quelltext samt Kommentaren gehasht; Version "1" hatte
+# damals die Prüfsumme
 # e724ffc424e1878e27e46545b04880d5f0875b4a73aad1d024bcefa381e99180.
-# Der Syntaxbaum ist seit Commit 475307d (Eintrag von "1") unverändert.
+# Der Syntaxbaum von Version "1" ist seit ihrem Eintrag unverändert.
 KNOWN_MODEL_VERSIONS = {
     "1": "34e4c1d3590b1ee25d813b7ea0f0e102a65524274fd36bd187a2603e99220c3b",
 }
