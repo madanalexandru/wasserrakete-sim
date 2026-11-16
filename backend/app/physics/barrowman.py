@@ -14,8 +14,9 @@ Bewusste Abweichungen von Barrowman (im Bericht begründet):
 
 Annahmen:
 - beta = 1 (inkompressibel; Wasserrakete etwa Mach 0,13).
-- Seitenverhältnis AR = 2 s² / A_f (zwei Finnen als ein Flügel); im
-  Original keine Formel gefunden [QUELLE PRÜFEN].
+- Seitenverhältnis AR = (2 s)² / (2 A_f) = 2 s² / A_f: eigene Annahme,
+  zwei Finnen als ein Flügel. Barrowman nennt AR nur im
+  Symbolverzeichnis (S. vi), ohne Formel.
 - Nasendurchmesser = Rumpfdurchmesser (kein Übergang), spitze Nase (S. 2).
 """
 

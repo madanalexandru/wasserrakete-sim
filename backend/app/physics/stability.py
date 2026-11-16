@@ -20,8 +20,9 @@ Annahmen:
   (bei l_total). Die echte Flasche verjüngt sich zum Hals -> Näherung.
 - x_cg_empty wird gemessen eingegeben (z. B. Rakete ausbalancieren).
 
-Die Warnschwelle min_margin hat noch keine Quelle (Barrowman 1967 nennt
-keine) und muss deshalb beim Aufruf übergeben werden [QUELLE PRÜFEN].
+Für die Warnschwelle min_margin liegt keine geprüfte Quelle vor. Sie hat
+deshalb keinen Standardwert und muss beim Aufruf übergeben werden; die
+API nutzt nur stability_values (Werte ohne Urteil).
 """
 
 from dataclasses import astuple, dataclass, field
