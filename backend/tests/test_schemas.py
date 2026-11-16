@@ -46,7 +46,7 @@ def test_create_fields_match_model():
 
 
 def test_read_fields_match_model():
-    # stability ist berechnet, nicht gespeichert (Entscheidung 3B/7a)
+    # stability ist berechnet, nicht gespeichert
     assert list(RocketRead.model_fields) == [
         "id", "name", "created_at", *CONFIG_FIELDS, "stability",
     ]
@@ -194,7 +194,7 @@ def test_water_column_longer_than_rocket_rejected():
     assert "Wassersäule" in error_text(exc)
 
 
-# --- Schema und Physik laufen nicht auseinander (Entscheidung C) ----------
+# --- Schema und Physik laufen nicht auseinander ---------------------------
 # Was das Schema ablehnt, lehnt auch die Physik ab, und umgekehrt.
 
 def test_physics_rejects_water_not_less_than_bottle():
@@ -229,10 +229,10 @@ def test_valid_schema_runs_in_physics():
     assert simulate_flight(cfg).apogee > 0
 
 
-# --- Extreme Werte: 422 statt 500 (Entscheidung 9x) -----------------------
+# --- Extreme Werte: 422 statt 500 -----------------------------------------
 # Laut Feldgrenzen gültig, aber nicht endlich berechenbar. Vorher stürzte
-# das Schema bei d_body = 1e-200 mit ZeroDivisionError ab (API: 500,
-# Sandbox 02.11.). Werte wie in test_stability.py.
+# das Schema bei d_body = 1e-200 mit ZeroDivisionError ab (API: 500).
+# Werte wie in test_stability.py.
 
 ABSURD = [
     {"fin_sweep": 1e200},

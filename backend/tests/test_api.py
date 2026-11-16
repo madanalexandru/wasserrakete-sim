@@ -1,9 +1,9 @@
 """API-Tests: Rakete anlegen (POST) und abrufen (GET).
 
-Die Tests laufen gegen SQLite im Arbeitsspeicher, nicht gegen PostgreSQL
-(Entscheidung 1C, Chat 02.11.2026). FastAPI ersetzt dafür get_session
+Die Tests laufen gegen SQLite im Arbeitsspeicher, nicht gegen PostgreSQL.
+FastAPI ersetzt dafür get_session
 durch eine SQLite-Session (dependency_overrides). Integrationstests gegen
-das echte PostgreSQL folgen in einem eigenen Schritt.
+das echte PostgreSQL stehen in tests/integration/.
 
 StaticPool + check_same_thread=False: Eine SQLite-Datenbank im Speicher
 lebt nur in ihrer Verbindung. TestClient ruft die App aus einem anderen
@@ -11,9 +11,9 @@ Thread auf; so sehen Test und App dieselbe Verbindung und dieselben Daten.
 
 Werte frei gewählt (wie test_stability.py), NICHT gemessen.
 
-Stabilitätswerte und Sicherheitsnetz (Chat Teil 4, 02.11.2026): Die Tests
+Stabilitätswerte und Sicherheitsnetz: Die Tests
 für das Netz ersetzen stability_values in app.main per monkeypatch, weil
-gültige Eingaben das Netz nach Entscheidung 9x nicht mehr erreichen. Das
+gültige Eingaben das Netz wegen der Eingabeprüfung nicht mehr erreichen. Das
 Schema benutzt seine eigene Referenz (app.schemas) und bleibt unberührt.
 """
 
@@ -161,7 +161,7 @@ def test_422_message_names_the_problem(client):
     assert "l_total" in message
 
 
-# --- Stabilitätswerte (Entscheidungen 3B, 7a, 8i) -------------------------
+# --- Stabilitätswerte ------------------------------------------------------
 
 def test_create_returns_stability_values(client):
     body = client.post("/api/rockets", json=FULL).json()
@@ -194,11 +194,11 @@ def test_stability_is_not_stored():
     assert not any(c.startswith(("x_cp", "margin")) for c in Rocket.__table__.columns.keys())
 
 
-# --- Extreme Werte: 422 schon bei der Eingabeprüfung (Entscheidung 9x) -----
+# --- Extreme Werte: 422 schon bei der Eingabeprüfung ------------------------
 
 @pytest.mark.parametrize("changes", [
     {"fin_sweep": 1e200},                       # vorher ZeroDivisionError
-    {"d_body": 1e-200, "d_nozzle": 1e-201},     # vorher 500 (Sandbox 02.11.)
+    {"d_body": 1e-200, "d_nozzle": 1e-201},     # führte früher zu Status 500
     {"fin_span": 1e200},                        # NaN
 ])
 def test_absurd_values_return_422_and_store_nothing(client, engine, changes):
@@ -208,7 +208,7 @@ def test_absurd_values_return_422_and_store_nothing(client, engine, changes):
     assert count_rockets(engine) == 0
 
 
-# --- Sicherheitsnetz im POST (Entscheidungen 9x, 10β) ---------------------
+# --- Sicherheitsnetz im POST -----------------------------------------------
 
 def raise_value_error(cfg):
     raise ValueError("Testfehler aus der Physik")
@@ -242,7 +242,7 @@ def test_without_geometry_physics_is_not_called(client, monkeypatch):
 
 
 def test_get_has_no_safety_net(client, monkeypatch):
-    # Entscheidung 10β: Fehler in gespeicherten Daten -> 500, nicht 422
+    # Fehler in gespeicherten Daten -> 500, nicht 422
     rocket_id = client.post("/api/rockets", json=FULL).json()["id"]
     monkeypatch.setattr("app.main.stability_values", raise_value_error)
     with pytest.raises(ValueError):

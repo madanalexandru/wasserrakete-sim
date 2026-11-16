@@ -103,7 +103,7 @@ def test_rocket_roundtrip_with_geometry(session):
 
 
 def test_flight_keeps_its_own_config(session):
-    """Kassenbon: Der Flug behält seine Werte, auch wenn die Vorlage abweicht."""
+    """Flugdatensatz: Der Flug behält seine Werte, auch wenn die Vorlage abweicht."""
     rocket = make_rocket()
     session.add(rocket)
     session.commit()

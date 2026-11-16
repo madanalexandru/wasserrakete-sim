@@ -6,9 +6,9 @@ aus test_api.py kopiert statt importiert, damit beide Dateien unabhängig
 bleiben.
 
 Geprüft wird: URL unter der Rakete ohne Body; Flug = exakte Kopie der
-Rakete; model_version aus simulation.py; Antwort = vollständiger Kassenbon
+Rakete; model_version aus simulation.py; Antwort = vollständiger Flugdatensatz
 ohne Flugkurve; ValueError/RuntimeError der Simulation -> 422, nichts
-gespeichert; andere Fehler -> 500. Abruf: liefert denselben Kassenbon wie
+gespeichert; andere Fehler -> 500. Abruf: liefert denselben Flugdatensatz wie
 der POST, rechnet nichts neu (auch bei geänderter MODEL_VERSION), ändert
 nichts in der Datenbank; unbekannte ID -> 404, keine Zahl -> 422; kein
 Sicherheitsnetz -> Fehler beim Lesen bleiben 500.
@@ -88,7 +88,7 @@ def test_flight_returns_201_with_receipt(client):
     response = client.post(f"/api/rockets/{rocket_id}/flights")
     assert response.status_code == 201
     body = response.json()
-    assert list(body) == list(FlightRead.model_fields)  # vollständiger Kassenbon
+    assert list(body) == list(FlightRead.model_fields)  # vollständiger Flugdatensatz
     assert isinstance(body["id"], int)
     assert body["created_at"]
     assert body["rocket_id"] == rocket_id
@@ -219,7 +219,7 @@ def test_get_returns_same_receipt_as_post(client, payload):
 
 
 def test_get_does_not_recompute(client, monkeypatch):
-    # Kassenbon: gespeicherte Werte gelten, auch nach einer Modelländerung
+    # Flugdatensatz: gespeicherte Werte gelten, auch nach einer Modelländerung
     posted = new_flight(client)
 
     def must_not_run(cfg):

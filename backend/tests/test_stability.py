@@ -91,7 +91,7 @@ def test_negative_water_rejected():
         cg_with_water(ROCKET, -1e-4)
 
 
-# --- Werte ohne Urteil (stability_values, Entscheidung 6A) ----------------
+# --- Werte ohne Urteil (stability_values) ---------------------------------
 
 def test_values_match_check_stability():
     values = asdict(stability_values(ROCKET))
@@ -116,9 +116,9 @@ def test_values_missing_geometry_names_fields():
         stability_values(CP_ROCKET)
 
 
-# --- Garantie: endliche Zahlen oder ValueError (Entscheidung 9x) ----------
+# --- Garantie: endliche Zahlen oder ValueError ----------------------------
 # Absurde, aber laut Feldgrenzen gültige Werte. Ohne Umwandlung gäbe es
-# ZeroDivisionError, OverflowError oder NaN/unendlich (Sandbox, 02.11.).
+# ZeroDivisionError, OverflowError oder NaN/unendlich.
 
 ABSURD = [
     {"fin_sweep": 1e200},                          # Division durch null

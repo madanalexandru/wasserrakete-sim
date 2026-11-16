@@ -1,7 +1,7 @@
-"""Tests für FlightRead: Kassenbon eines Flugs.
+"""Tests für FlightRead: Datensatz eines Flugs.
 
 Vertragstests: FlightRead muss jede Spalte der Tabelle flights enthalten
-(sonst fehlte etwas auf dem Kassenbon) und die Ergebnisfelder genau wie
+(sonst fehlte etwas im Flugdatensatz) und die Ergebnisfelder genau wie
 FlightResult benennen (ohne Flugkurve). Die Feldreihenfolge ist auch die
 Spaltenreihenfolge des späteren CSV-Exports und wird deshalb fest geprüft.
 

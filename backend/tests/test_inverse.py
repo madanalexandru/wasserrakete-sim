@@ -24,7 +24,7 @@ def test_hin_und_zurueck(p_true):
 
 
 def test_kontrollflug_trifft_zielhoehe():
-    # 1 Pa entspricht bei 5 bar ca. 8e-5 m (Sandbox-Messung); 1 mm ist großzügig.
+    # 1 Pa entspricht bei 5 bar ca. 8e-5 m; 1 mm ist großzügig.
     r = find_start_pressure(EXAMPLE_ROCKET, 40.0)
     assert r.apogee == pytest.approx(40.0, abs=1e-3)
 

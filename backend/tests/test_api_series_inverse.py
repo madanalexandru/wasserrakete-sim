@@ -11,7 +11,7 @@ app.physics.inverse (Suche, Kontrollflug).
 
 Wenige Tests rechnen mit der echten Physik und prüfen nur Eigenschaften,
 keine Zahlenwerte: Die Zielhöhe liegt zwischen den Apogäen bei
-p0_gauge ± 1 Pa, und jeder gespeicherte Flug ist aus seinem Kassenbon
+p0_gauge ± 1 Pa, und jeder gespeicherte Flug ist aus seinem Flugdatensatz
 reproduzierbar.
 
 Werte frei gewählt, NICHT gemessen.
@@ -427,7 +427,7 @@ def test_real_flights_are_reproducible_and_equal_the_control_flight(client, engi
     body = start_series(client, new_rocket(client), n_steps=2).json()
     flights = flights_of(engine, body["id"])
     for f in flights:
-        # Kassenbon: Die gespeicherte Konfiguration ergibt dieselben Ergebnisse
+        # Flugdatensatz: Die gespeicherte Konfiguration ergibt dieselben Ergebnisse
         expected = result_values(simulate_flight(stored_config(f)))
         assert {k: getattr(f, k) for k in expected} == expected
     # Ergebnisflug und Kontrollflug der Suche stimmen überein
