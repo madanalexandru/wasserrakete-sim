@@ -2,7 +2,8 @@
 
 Zielfunktion f(p) = Apogäum der Rakete mit Startdruck p (ein ganzer Flug).
 Zulässig, weil das Apogäum monoton mit dem Startdruck steigt
-(Sandbox-Prüfung Beispielrakete: 100 Stützstellen 0,1–10 bar, Feinscan um 5 bar).
+(geprüft für R0 bis R9 von 1 bis 1000 kPa: ab dem ersten Apogäum > 0 streng
+steigend, siehe experiments/durchsatz/results/durchsatz.md).
 Der Füllstand ist nicht monoton und wird hier bewusst NICHT gesucht.
 
 Unter dem Abhebedruck ist das Apogäum ≈ 0 (teils −3e-8 m, kein Boden modelliert).
@@ -17,7 +18,7 @@ from app.physics.simulation import RocketConfig, simulate_flight
 from app.search.exponential_search import ExponentialSearch
 from app.search.searchable import Searchable
 
-P_TOL = 1.0  # Pa; Begründung siehe projektlog.txt (Toleranz inverser Modus)
+P_TOL = 1.0  # Pa; 1 Pa ergibt bei 5 bar ca. 8e-5 m Höhe: Suchfehler << Modellfehler
 P_MIN = 1e3  # Pa; Suchuntergrenze (0 Pa ist in simulate_flight unzulässig)
 P_MAX = 1e6  # Pa; Suchobergrenze = obere Grenze des geprüften Monotoniebereichs (10 bar).
 #              KEINE Sicherheitsgrenze: Ein zulässiger Flaschendruck ist nicht

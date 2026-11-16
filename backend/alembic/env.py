@@ -1,8 +1,8 @@
-"""Alembic-Umgebung: verbindet Migrationen mit unserem Datenmodell.
+"""Alembic-Umgebung: verbindet Migrationen mit dem Datenmodell.
 
 Nach „Full Stack Handwerk“, S. 104: env.py importiert das Datenmodell,
 damit autogenerate die Tabellen sieht, und nutzt dieselbe
-Verbindungsadresse wie die Anwendung (app/db.py) statt des Platzhalters
+Verbindungsadresse wie die Anwendung (app/db.py) statt des Beispielwerts
 sqlalchemy.url in alembic.ini.
 """
 
@@ -21,7 +21,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Unser Datenmodell: daraus erzeugt autogenerate die Migrationen
+# Datenmodell der Anwendung: daraus erzeugt autogenerate die Migrationen
 target_metadata = Base.metadata
 
 

@@ -6,11 +6,11 @@ Positiv = Druckpunkt hinter dem Schwerpunkt = stabil.
 
 Berechnet werden zwei Zeitpunkte: Start (volles Wasser) und leer.
 
-Zwei Stufen (Entscheidung 6A, Chat 02.11.2026):
-- stability_values: nur die Werte, ohne Urteil (für die API, Entscheidung 3B).
+Zwei Stufen:
+- stability_values: nur die Werte, ohne Urteil (für die API).
 - check_stability: dieselben Werte plus Warnungen unter einer Schwelle.
 
-Garantie von stability_values (Entscheidung 9x): entweder fünf endliche
+Garantie von stability_values: entweder fünf endliche
 Zahlen oder ein ValueError. Division durch null, Überlauf und NaN/unendlich
 bei extremen Eingaben werden in ValueError umgewandelt. So kann die API
 solche Eingaben mit 422 statt 500 beantworten.

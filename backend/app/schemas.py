@@ -21,7 +21,7 @@ Antworten:
 - RocketRead enthält das Feld stability (berechnet, nicht gespeichert, ohne
   Urteil). Ohne Geometrie ist es null. Gefüllt wird es im Endpunkt
   (app/main.py).
-- FlightRead ist der vollständige Kassenbon eines Flugs: Kopf (id, Zeit,
+- FlightRead ist der vollständige Datensatz eines Flugs: Kopf (id, Zeit,
   Rakete, Serie, model_version), Kopie der Konfiguration, Felder des
   inversen Modus (null im Vorwärtsmodus) und Ergebnis. Die Flugkurve gehört
   nicht dazu, sie wird nicht gespeichert. Die Feldreihenfolge ist zugleich
@@ -53,7 +53,7 @@ Experimentserien:
 
 Flugkurve:
 - TrajectoryRead ist die ausgedünnte Flugkurve eines gespeicherten Flugs,
-  aus dem Kassenbon neu gerechnet (nicht gespeichert). Drei gleich lange
+  aus dem Flugdatensatz neu gerechnet (nicht gespeichert). Drei gleich lange
   Listen t, h, v statt einer Liste von Punkten: Die Feldnamen stehen so nur
   einmal in der Antwort statt in jedem Punkt.
 """
@@ -174,7 +174,7 @@ class RocketRead(BaseModel):
 
 
 class FlightRead(BaseModel):
-    """Antwort: ein gespeicherter Flug als vollständiger Kassenbon."""
+    """Antwort: ein gespeicherter Flug als vollständiger Datensatz."""
 
     # from_attributes=True: liest die Werte direkt aus der SQLAlchemy-Zeile.
     model_config = ConfigDict(from_attributes=True)

@@ -43,7 +43,8 @@ class RocketConfig:
 
 
 # Beispielrakete: plausible Werte für eine 1,5-l-Flasche, NICHT gemessen.
-# c_w = 0,5 ist ein Platzhalter bis zur Sensitivitätsanalyse.
+# c_w = 0,5 ist ein angenommener Wert; den Einfluss von c_w zeigt
+# experiments/cw_sensitivitaet.
 EXAMPLE_ROCKET = RocketConfig(
     v_bottle=1.5e-3,
     v_water0=0.5e-3,

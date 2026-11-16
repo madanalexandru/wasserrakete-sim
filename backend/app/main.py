@@ -15,7 +15,7 @@ Raketen (POST/GET /api/rockets):
 
 Flüge (POST /api/rockets/{id}/flights):
 - Rechnet einen Flug mit der gespeicherten Konfiguration und speichert ihn
-  als Kassenbon: Kopie der Konfiguration, Ergebnis ohne Flugkurve,
+  als Flugdatensatz: Kopie der Konfiguration, Ergebnis ohne Flugkurve,
   model_version.
 - Kein Body: Der Flug nutzt genau die Werte der Rakete. Andere Werte
   -> neue Rakete oder Serie.
@@ -33,7 +33,7 @@ Flug abrufen (GET /api/flights/{id}):
 
 Serie starten (POST /api/rockets/{id}/series):
 - Variiert einen Parameter der gespeicherten Rakete (SeriesCreate) und
-  speichert jeden Flug als Kassenbon mit series_id.
+  speichert jeden Flug als Flugdatensatz mit series_id.
 - Reihenfolge: erst alle Schritte vorab prüfen, dann alle Flüge rechnen,
   dann alles in einer Transaktion speichern. Scheitert ein Schritt,
   antwortet die API mit 422 und der Schrittnummer, und es wird nichts
@@ -44,7 +44,7 @@ Serie starten (POST /api/rockets/{id}/series):
 - Inverser Modus: Zu jeder Zielhöhe sucht find_start_pressure den
   Startdruck mit dem gewählten Suchverfahren. Danach rechnet der Endpunkt
   einen Ergebnisflug mit dem gefundenen Druck, weil die Suche nur das
-  Apogäum liefert, der Kassenbon aber alle Ergebnisse braucht. Gespeichert
+  Apogäum liefert, der Flugdatensatz aber alle Ergebnisse braucht. Gespeichert
   wird die Konfiguration mit dem gefundenen Druck, dazu Zielhöhe,
   Suchverfahren und search_evaluations (Flüge der Suche, ohne Kontroll-
   und Ergebnisflug).
@@ -212,7 +212,7 @@ def read_flight(flight_id: int, session: Session = Depends(get_session)):
     flight = session.get(Flight, flight_id)
     if flight is None:
         raise HTTPException(status_code=404, detail="Flug nicht gefunden")
-    return flight  # gespeicherter Kassenbon, nichts neu gerechnet
+    return flight  # gespeicherter Flugdatensatz, nichts neu gerechnet
 
 
 @app.get("/api/flights/{flight_id}/trajectory", response_model=TrajectoryRead)
