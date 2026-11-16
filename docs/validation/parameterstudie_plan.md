@@ -78,7 +78,7 @@ Rasterpunkt eine Rakete mit einer Vorwärtsserie über den Füllstand.
 - Gesamte Wanduhrzeit der Studie und Anzahl Aufrufe
   (Experimentierbarkeit, Teilfrage 2).
 - Einordnung mit Einzelwerten aus Quellen nur in der Discussion,
-  nach Seitenprüfung: [QUELLE PRÜFEN].
+  nach Seitenprüfung (entfällt, siehe Nachtrag vom 16.11.2026).
 
 ## 5. Ablauf und Ausgaben
 
@@ -105,3 +105,11 @@ Rasterpunkt eine Rakete mit einer Vorwärtsserie über den Füllstand.
 - Rohdaten unverändert ins Repo, dann Auswertung mit Tests
   committen, erst danach Werte ansehen.
 - Änderungen an dieser Notiz nur als datierter Nachtrag.
+
+## 7. Nachtrag vom 16.11.2026 (nach der Auswertung): Seitenprüfung entfällt
+
+Abschnitt 4 sah vor, f_max in der Discussion mit Einzelwerten aus
+Quellen einzuordnen, nach Seitenprüfung. Der Bericht vergleicht f_max
+mit keinem Wert aus einer Quelle; die Seitenprüfung entfällt. Der
+Platzhalter in Abschnitt 4 ist deshalb durch einen Verweis auf diesen
+Nachtrag ersetzt. KPI, Ablauf und Auswertung bleiben unverändert.
