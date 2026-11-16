@@ -8,7 +8,7 @@ Modellversion: "1" (app/physics/ und app/search/ unverändert).
 ## 1. Raketen (Validierungssatz)
 
 Alle Werte plausibel, NICHT gemessen. R8/R9: Durchmesser als
-Anhaltswert (Mittelwert einer KI-Zusammenfassung, Primärquelle
+Anhaltswert (Mittelwert aus einer Zusammenfassung, Primärquelle
 ungeprüft, nicht zitierfähig). Dieselben 10 Raketen werden später
 im Referenztool gerechnet; der Satz wird nach der Messung nicht
 mehr geändert.
@@ -71,7 +71,7 @@ eps = [(h(c_ref + 0,01) - h(c_ref - 0,01)) / 0,02] * c_ref / h(c_ref).
 Abgeleitet (Luftdichte): Im Modell wirkt rho_Luft nur über
 k = 0,5 * rho * c_w * A. Effekt der Tool-Dichte daher
 (h(c_ref * 1,2039 / 1,225) - h(c_ref)) / h(c_ref) in %
-(1,2039 kg/m³ aus Rückrechnung, siehe projektlog).
+(1,2039 kg/m³ aus Rückrechnung, nicht im Repo).
 
 Die KPI-Schwellen werden erst NACH dieser Messung festgelegt.
 Bewertung Luftdichte und Flaschenform: nach der Messung, vor dem
@@ -108,7 +108,7 @@ Befund: Die Quelle nennt c_w = 0,345 ± 0,004 für eine einzige
 2-l-Rakete (D = 106,0 mm; S. 1045, S. 1047 Gl. 6), gültig für
 1e3 < Re < 2e5 (S. 1047). ± 0,004 ist die Messgenauigkeit dieses
 Versuchs (S. 1047, Tab. 1), nicht die Streuung zwischen Raketen.
-Unsere Raketen R0 bis R9 sind nicht gemessen; für die KPI-Schwelle
+Die Raketen R0 bis R9 sind nicht gemessen; für die KPI-Schwelle
 zählt daher die Unsicherheit eines ungemessenen c_w.
 
 Änderung: Ausgewertet werden zwei Bänder, beide mit c_ref = 0,345.
@@ -141,7 +141,7 @@ Stand: Die Apogäen hat weiterhin niemand angesehen.
 
 Luftdichte (Angleichung über c_w): Das Referenztool rechnet bei
 20 °C (nur per Schieberegler eingestellt) mit rho_Tool = 1,2039
-kg/m³ (Rückrechnung aus Burnout-Werten, siehe projektlog; kein
+kg/m³ (Rückrechnung aus Burnout-Werten, nicht im Repo; kein
 Herstellerwert). Im Modell wirkt rho nur über
 k = 0,5 * rho * c_w * A. Für den Vergleich rechnet das Modell daher
 mit c_w' = 0,345 * 1,2039 / 1,225 (ca. 0,33906; im Skript als
@@ -162,3 +162,5 @@ Work).
 
 Weitere Angleichungen im Tool unverändert wie im Funktionstest:
 Startrohr Länge 0, Wirkungsgrad 1.
+
+Sprachlich vereinheitlicht am 16.11.2026, Inhalt unverändert.

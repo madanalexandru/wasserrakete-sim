@@ -111,5 +111,7 @@ Rasterpunkt eine Rakete mit einer Vorwärtsserie über den Füllstand.
 Abschnitt 4 sah vor, f_max in der Discussion mit Einzelwerten aus
 Quellen einzuordnen, nach Seitenprüfung. Der Bericht vergleicht f_max
 mit keinem Wert aus einer Quelle; die Seitenprüfung entfällt. Der
-Platzhalter in Abschnitt 4 ist deshalb durch einen Verweis auf diesen
+offene Punkt in Abschnitt 4 ist deshalb durch einen Verweis auf diesen
 Nachtrag ersetzt. KPI, Ablauf und Auswertung bleiben unverändert.
+
+Sprachlich vereinheitlicht am 16.11.2026, Inhalt unverändert.
