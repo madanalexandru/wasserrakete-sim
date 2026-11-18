@@ -6,7 +6,7 @@ Apogäum berechnet. Es speichert Raketen, Flüge und Experimentserien in
 PostgreSQL, sucht im inversen Modus den Startdruck für eine Zielhöhe und
 exportiert Serien als CSV.
 
-Projektbericht „Full Stack Handwerk“ (Nachprüfung 2026), DHBW Ravensburg.
+Projektbericht „Ein Fullstack-Simulationstool für Wasserraketen“ (Nachprüfung 2026) zur Vorlesung „Full Stack Handwerk“, DHBW Ravensburg.
 Modell, Annahmen, Messungen und Grenzen stehen im Projektbericht; dieses
 README beschreibt nur die Bedienung.
 
