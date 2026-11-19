@@ -185,9 +185,9 @@ Ursachenprüfung nach Abschnitt 7:
   für h_Tool verwendeten Paars. Keine Schwelle, kein KPI. Skript
   stichprobe/ursache.py, Ausgabe results/ursache.csv und .md.
 
-Diese Größen wurden nach Ansicht der Ergebnisse festgelegt; sie
-waren vor diesem Nachtrag bereits in einer Nebenrechnung (nicht im Repo)
-angesehen worden.
+Diese Größen wurden nach Ansicht der Ergebnisse festgelegt; die KI
+hat sie vor diesem Nachtrag in einer Nebenrechnung (nicht im Repo)
+angesehen.
 
 Entscheidung nach Abschnitt 7: Die Ursache ist nicht eindeutig im
 Modell belegt. Die Abweichung entsteht in der Schubphase; ob das
@@ -196,5 +196,3 @@ ohne Messung nicht entscheidbar. Daher keine Modelländerung vor der
 Abgabe; begründeter Vorschlag in Discussion und Future Work; die
 Abweichung von der Results-Methodik-Schleife wird offengelegt.
 S und die KPI-Regel bleiben unverändert.
-
-Sprachlich vereinheitlicht am 16.11.2026, Inhalt unverändert.

@@ -15,18 +15,18 @@ R5 4,98; R6 7,14; R7 2,57; R8 3,07; R9 6,53 %).
   abs. 1e-9 m; Raketengleichung mit Suche rel. 1e-6; Gesamtmodell
   c_w = 0 ab Brennschluss abs. 1e-4 m. Ausgang von KPI 1 ist damit
   für R0 weitgehend vorhersehbar.
-- Vorabrechnung (kein Messwert): 0,04 bis 0,08 s pro Flug.
-- Vorabrechnung (kein Messwert): Monotonie Apogäum(Startdruck)
+- Sandbox-Sonde (kein Messwert): 0,04 bis 0,08 s pro Flug.
+- Sandbox-Sonde (kein Messwert): Monotonie Apogäum(Startdruck)
   für die Beispielrakete 0,1 bis 10 bar ohne Verletzung.
 - Auswertungszahlen von binärer und Exponentialsuche hängen nur von
   der Lage des gesuchten Drucks p* ab, nicht von der Kurvenform.
-  Vorabrechnung, Ersatzfunktion f(p) = p, P_MIN 1 kPa, P_MAX 1000 kPa,
+  Sandbox, Ersatzfunktion f(p) = p, P_MIN 1 kPa, P_MAX 1000 kPa,
   tol 1 Pa, step0 50 kPa (nicht im Repo):
   binär immer 22; exponentiell 18 bis 25 (Tabelle in Abschnitt 3).
 - h(c_ref) je Rakete (kennzahlen.csv, seit 09.11. committet).
 - Keine Werte für die Kennzahlen dieser Notiz.
 
-## 1. KPI analytische Lösung (Teilfrage 1)
+## 1. KPI analytische Lösung (Teilfrage 1, Entscheidung 95 A2)
 
 Kennzahl: eps = |h_Modell - h_ana| / h_ana je Rakete.
 
@@ -53,7 +53,7 @@ Nicht Teil des KPI: Wasserphase nur im Grenzfall konstanten Drucks
 (bestehender Test, Beispielrakete; Restabweichung ca. 1e-7 ungeklärt).
 Luftstoß ohne analytische Lösung -> Limitation.
 
-## 2. KPI Durchsatz und Serienaufwand (Teilfrage 2)
+## 2. KPI Durchsatz und Serienaufwand (Teilfrage 2, Entscheidung 96 B1)
 
 "Groß" = die eigenen Obergrenzen: 1000 Schritte vorwärts
 (SERIES_MAX_STEPS), 40 Schritte invers (SERIES_MAX_STEPS_INVERSE).
@@ -92,7 +92,7 @@ Monotonie je Rakete. Geprüft wird: keine Abnahme zwischen Nachbarn;
 streng steigend ab dem ersten Apogäum > 0. Verletzung -> Rakete aus
 Abschnitt 3 nehmen und berichten.
 
-## 3. KPI Algorithmenvergleich (Teilfrage 3)
+## 3. KPI Algorithmenvergleich (Teilfrage 3, Entscheidung 97 C2+)
 
 Gleiche Bedingungen: tol = 1 Pa, P_MIN 1 kPa, P_MAX 1000 kPa,
 step0 = 50 kPa (Annahme, wird NICHT nachträglich verändert).
@@ -173,7 +173,7 @@ Messumgebung (abgefragt am 10.11.2026 per PowerShell):
 - Messung im Netzbetrieb, ohne andere rechenintensive Programme.
   Abweichungen werden im Messprotokoll vermerkt.
 
-Messablauf Durchsatz vorwärts:
+Messablauf Durchsatz vorwärts (Entscheidungen 98a, 99a, 100b):
 - Eigenes Skript experiments/durchsatz/run.py.
 - Aufwärmlauf: eine Serie an R0 mit 10 Schritten (1 kPa bis
   1000 kPa), nicht ausgewertet, kein Export im Repo.
@@ -195,7 +195,7 @@ Messablauf Durchsatz vorwärts:
 Stand: Durchsatz vorwärts gemessen (Commit 45d298d). Weder Zeiten
 noch Apogäen angesehen; kein Auswerte-Skript gelaufen.
 
-Anlass (vorab bekannt, Vorabrechnung vom 05.11., nicht im Repo):
+Anlass (vorab bekannt, Sandbox-Sonde vom 05.11., nicht im Repo):
 Unterhalb des Abhebedrucks kann das Modell ein Apogäum knapp unter
 null liefern (Beispielrakete: 1 kPa 0,0 m; 10 kPa -3e-8 m), weil
 kein Boden modelliert ist. Nach Abschnitt 2 wäre das eine Abnahme
@@ -230,7 +230,7 @@ Stand: Durchsatz vorwärts ausgewertet (Commit 355bc1c). M2 für alle
 10 Raketen erfüllt, alle 10 im Vergleich (durchsatz/results/
 monotonie.csv). Noch keine inverse Serie gerechnet.
 
-Messablauf:
+Messablauf (Entscheidungen 104 bis 108):
 - Eigenes Skript experiments/algorithmen/run.py; Hilfsfunktionen aus
   durchsatz/run.py kopiert.
 - Raketen R0 bis R9 wie in durchsatz/run.py (c_w = 0,345), nur mit
@@ -300,7 +300,7 @@ Stand: Repo 2d06003. Für Abschnitt 1 und die Wirkung der
 Ereignissuche (Abschnitt 3) ist noch kein Flug gerechnet und kein
 Wert angesehen. Schwellen und Klassifikation bleiben unverändert.
 
-Analytische Lösung (Abschnitt 1):
+Analytische Lösung (Abschnitt 1, Entscheidung 114):
 - Eigenes Skript experiments/analytisch/run.py über die API (Service
   "experiment"). Raketen R0 bis R9 aus durchsatz/run.py kopiert; ein
   Test prüft die Gleichheit.
@@ -318,7 +318,7 @@ Analytische Lösung (Abschnitt 1):
   results/analytisch.csv und analytisch.md. S aus kennzahlen.csv in
   voller Genauigkeit.
 
-Wirkung der Ereignissuche (Abschnitt 3):
+Wirkung der Ereignissuche (Abschnitt 3, Entscheidungen 115 bis 117):
 - Eigener Ordner experiments/ereignissuche/. Nachbau von
   simulate_flight, der searcher an Wasserphase und Freiflug
   weitergibt und deren Auswertungen zurückgibt. Code in backend/app
@@ -351,5 +351,3 @@ Wirkung der Ereignissuche (Abschnitt 3):
 Regeln wie Abschnitt 4: Skripte geben nur Ja/Nein und Dateinamen
 aus; erst nach dem Commit der getesteten Auswertung werden Werte
 angesehen.
-
-Sprachlich vereinheitlicht am 16.11.2026, Inhalt unverändert.

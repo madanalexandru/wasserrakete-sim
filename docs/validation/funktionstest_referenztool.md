@@ -11,7 +11,7 @@ Eingaben sind abbildbar, die Ausgaben sind dokumentiert, offene Punkte
 werden geklärt, und die Plausibilität wird nur innerhalb des Tools geprüft.
 
 Kein Zahlenvergleich mit dem eigenen Modell. Der erste Vergleich folgt
-in der Validierung, direkt nachdem die c_w-Sensitivität gemessen und die KPIs
+in Phase 4, direkt nachdem die c_w-Sensitivität gemessen und die KPIs
 festgelegt sind.
 
 Erwartungen für die Plausibilitätsprüfung (jeweils nur ein Wert geändert):
@@ -190,7 +190,5 @@ Kontrolle nach Rückstellung: 49.57 m.
 ## T6 Flaschenform
 Apogäum Standardform (A/B/C = 14/16/44, aus T3b): 49.57 m
 Apogäum fast zylindrisch (A/B/C = 0/0/50): 49.39 m
-Unterschied: -0.18 m. Bewertung erst in der Validierung (Vergleich mit
+Unterschied: -0.18 m. Bewertung erst in Phase 4 (Vergleich mit
 c_w-Sensitivität, Option C).
-
-Sprachlich vereinheitlicht am 16.11.2026, Inhalt unverändert.
