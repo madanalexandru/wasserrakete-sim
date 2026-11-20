@@ -172,11 +172,12 @@ docker run --rm -v "${PWD}:/repo:ro" -w /repo node:24.22.0-alpine@sha256:44fce69
 docker compose --profile experiment run --rm --no-deps experiment sh -c 'pip install -q --root-user-action=ignore -r requirements.txt && for d in analytisch cw_sensitivitaet tool_vergleich parameterstudie durchsatz algorithmen uebersicht stichprobe genauigkeit stabilitaet; do python -W error -m unittest discover -s $d || exit 1; done'
 ```
 
-Die Ereignissuche rechnet direkt in der Physik und braucht dafür
+Ereignissuche und Exponent rechnen direkt in der Physik und brauchen dafür
 `backend/` (Bash: `$PWD/backend` statt `${PWD}\backend`):
 
 ```powershell
 docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/backend -v "${PWD}\backend:/backend:ro" -v "${PWD}\experiments:/experiments" -w /experiments python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 python -W error -m unittest discover -s ereignissuche -v
+docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/backend -v "${PWD}\backend:/backend:ro" -v "${PWD}\experiments:/experiments" -w /experiments python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 python -W error -m unittest discover -s exponent -v
 ```
 
 ## Experimente und Abbildungen
@@ -199,13 +200,14 @@ nach `results/`) und Tests. Die Messpläne mit KPIs stehen in
 | `uebersicht` | Übersicht System und Experiment-Workflow | `abbildung_uebersicht` |
 | `genauigkeit` | Abweichung d für R0–R9 und E1–E4 (nur aus fertigen Ergebnissen, ohne `run.py`) | `abbildung_genauigkeit` |
 | `stabilitaet` | Beispielrakete R0G mit Nasenkegel und Finnen, Stabilitätswerte | – |
+| `exponent` | Wirkung des Expansionsexponenten β auf das Apogäum (direkt in der Physik) | – |
 
 Abbildungen jeweils als PNG und SVG.
 
 **Ergebnisse und Abbildungen aus den committeten Rohdaten neu erzeugen:**
 
 ```powershell
-docker compose --profile experiment run --rm --no-deps experiment sh -c 'pip install -q --root-user-action=ignore -r requirements.txt && for d in analytisch cw_sensitivitaet tool_vergleich parameterstudie durchsatz algorithmen stichprobe stabilitaet; do python $d/evaluate.py || exit 1; done && python stichprobe/ursache.py && python uebersicht/zeichne.py && python genauigkeit/zeichne.py'
+docker compose --profile experiment run --rm --no-deps experiment sh -c 'pip install -q --root-user-action=ignore -r requirements.txt && for d in analytisch cw_sensitivitaet tool_vergleich parameterstudie durchsatz algorithmen stichprobe stabilitaet exponent; do python $d/evaluate.py || exit 1; done && python stichprobe/ursache.py && python uebersicht/zeichne.py && python genauigkeit/zeichne.py'
 docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "${PWD}\experiments:/experiments" -w /experiments python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 python ereignissuche/evaluate.py
 git status
 ```
@@ -227,8 +229,8 @@ docker compose --profile experiment run --rm experiment python cw_sensitivitaet/
 `run.py` bricht ab, wenn in `data/` schon Rohdaten liegen. So bleiben die
 committeten Messungen geschützt. Für eine neue Messung den Ordner
 `data/` vorher umbenennen. `algorithmen/run.py` liest Zielhöhen aus den
-Rohdaten von `durchsatz`. Für die Ereignissuche den `docker run`-Befehl
-aus „Tests“ verwenden, mit `python ereignissuche/run.py` am Ende.
+Rohdaten von `durchsatz`. Für Ereignissuche und Exponent den `docker run`-Befehl
+aus „Tests“ verwenden, mit `python ereignissuche/run.py` bzw. `python exponent/run.py` am Ende.
 
 ## Ordnerstruktur
 
