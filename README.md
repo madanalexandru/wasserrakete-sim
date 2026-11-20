@@ -237,7 +237,7 @@ frontend/         Startseite, app.js, lib.js (von Nginx ausgeliefert)
 frontend-tests/   Node-Tests für lib.js
 nginx/            Nginx-Konfiguration
 experiments/      Messskripte, Rohdaten, Ergebnisse, Abbildungen
-docs/validation/  Messpläne und Funktionstest des Referenztools
+docs/validation/  Messpläne, Funktionstest des Referenztools und Flaschenmessung
 ```
 
 ## Typische Probleme
