@@ -64,7 +64,7 @@ def de(x, digits):
 
 def write_csv(res, path):
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(["groesse", "wert", "einheit"])
         for key, _, unit in FIELDS:
             w.writerow([key, repr(res["values"][key]), unit])
